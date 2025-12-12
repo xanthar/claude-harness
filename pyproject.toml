@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-harness"
+version = "1.0.0"
+description = "Workflow harness for optimizing Claude Code sessions"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Morten Elmstroem Hansen"}
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+keywords = ["claude", "ai", "workflow", "testing", "automation"]
+
+dependencies = [
+    "click>=8.1.0",
+    "jinja2>=3.1.0",
+    "rich>=13.0.0",
+    "questionary>=2.0.0",
+    "pyyaml>=6.0",
+    "toml>=0.10.0",
+    "playwright>=1.40.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "black>=24.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+claude-harness = "claude_harness.cli:main"
+ch = "claude_harness.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/xanthar/claude-harness"
+Repository = "https://github.com/xanthar/claude-harness"
+Issues = "https://github.com/xanthar/claude-harness/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["claude_harness*"]
+
+[tool.setuptools.package-data]
+claude_harness = ["templates/*", "templates/**/*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
