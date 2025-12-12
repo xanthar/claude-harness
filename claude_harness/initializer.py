@@ -204,12 +204,18 @@ class Initializer:
         ],
     }
 
-    def __init__(self, project_path: str):
-        """Initialize with project path."""
+    def __init__(self, project_path: str, non_interactive: bool = False):
+        """Initialize with project path.
+
+        Args:
+            project_path: Path to the project directory
+            non_interactive: If True, skip prompts and use detected/default values
+        """
         self.project_path = Path(project_path).resolve()
         self.detected: Optional[DetectedStack] = None
         self.config = HarnessConfig()
         self.is_existing_project = False
+        self.non_interactive = non_interactive
 
         # Setup Jinja2 environment
         self.jinja_env = Environment(
@@ -220,14 +226,72 @@ class Initializer:
         )
 
     def run(self) -> HarnessConfig:
-        """Run the interactive initialization process."""
+        """Run the initialization process.
+
+        If non_interactive is True, uses detected/default values without prompts.
+        """
         self._print_header()
         self._detect_existing_stack()
-        self._ask_questions()
+
+        if self.non_interactive:
+            self._apply_defaults()
+        else:
+            self._ask_questions()
+
         self._generate_files()
         self._print_summary()
 
         return self.config
+
+    def _apply_defaults(self):
+        """Apply detected/default values without prompting (non-interactive mode)."""
+        console.print("[yellow]Non-interactive mode: using detected/default values[/yellow]\n")
+
+        # Project name - use directory name
+        self.config.project_name = self.project_path.name
+
+        # Use detected values if available, otherwise use defaults
+        if self.detected:
+            self.config.language = self.detected.language or "python"
+            self.config.framework = self.detected.framework
+            self.config.database = self.detected.database
+            self.config.orm = self.detected.orm
+            self.config.source_directory = self.detected.source_directory or "."
+            self.config.venv_path = self.detected.venv_path or "venv"
+            self.config.env_file = self.detected.env_file or ".env"
+            self.config.test_directory = self.detected.test_directory or "tests"
+            self.config.test_framework = self.detected.test_framework or "pytest"
+        else:
+            # Pure defaults for empty/new projects
+            self.config.language = "python"
+            self.config.source_directory = "."
+            self.config.venv_path = "venv"
+            self.config.env_file = ".env"
+            self.config.test_directory = "tests"
+            self.config.test_framework = "pytest"
+
+        # Set port and start command based on detected/default stack
+        self.config.port = self._get_default_port()
+        self.config.start_command = self._get_default_start_command()
+        self.config.e2e_base_url = f"http://localhost:{self.config.port}"
+
+        # Set test commands
+        self._set_test_commands()
+
+        # Enable standard features
+        self.config.e2e_enabled = True
+        self.config.create_claude_hooks = True
+        self.config.context_tracking_enabled = True
+
+        # Log what was configured
+        console.print("[bold]Configuration applied:[/bold]")
+        console.print(f"  Project: {self.config.project_name}")
+        console.print(f"  Language: {self.config.language}")
+        console.print(f"  Framework: {self.config.framework or 'None'}")
+        console.print(f"  Database: {self.config.database or 'None'}")
+        console.print(f"  Port: {self.config.port}")
+        console.print(f"  Test Framework: {self.config.test_framework}")
+        console.print()
 
     def _print_header(self):
         """Print welcome header."""
@@ -1696,7 +1760,16 @@ addopts = -v --tb=short
         console.print()
 
 
-def initialize_project(project_path: str) -> HarnessConfig:
-    """Convenience function to initialize a project."""
-    initializer = Initializer(project_path)
+def initialize_project(project_path: str, non_interactive: bool = False) -> HarnessConfig:
+    """Convenience function to initialize a project.
+
+    Args:
+        project_path: Path to the project directory
+        non_interactive: If True, skip prompts and use detected/default values.
+                        Useful for CI/CD pipelines and automated scripts.
+
+    Returns:
+        HarnessConfig with the applied configuration
+    """
+    initializer = Initializer(project_path, non_interactive=non_interactive)
     return initializer.run()

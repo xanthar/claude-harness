@@ -468,13 +468,23 @@ The harness enforces these principles:
 4. **Clean repo always** - Every session ends with a commit
 5. **Context is king** - Progress.md ensures no context is lost
 
+## Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
+- [ROADMAP.md](ROADMAP.md) - Planned features and improvements
+- [docs/HOOKS.md](docs/HOOKS.md) - Detailed hook configuration guide
+- [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) - Latest integration test results
+
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`feat/your-feature`)
 3. Make your changes
-4. Write tests
-5. Submit a pull request
+4. Write tests (aim for 100% coverage on new code)
+5. Update CHANGELOG.md
+6. Submit a pull request
+
+See [ROADMAP.md](ROADMAP.md) for planned features accepting contributions.
 
 ## License
 

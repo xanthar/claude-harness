@@ -187,6 +187,47 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "start", "F-999"])
         assert "not found" in result.output.lower()
 
+    def test_feature_block(self, runner, initialized_project):
+        """Test blocking a feature."""
+        import os
+        os.chdir(initialized_project)
+        # Add feature first
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        # Block it
+        result = runner.invoke(main, ["feature", "block", "F-001", "-r", "Waiting for API"])
+        assert result.exit_code == 0
+        assert "Blocked" in result.output or "F-001" in result.output
+
+    def test_feature_unblock(self, runner, initialized_project):
+        """Test unblocking a blocked feature."""
+        import os
+        os.chdir(initialized_project)
+        # Add and block feature
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        runner.invoke(main, ["feature", "block", "F-001", "-r", "Waiting for API"])
+        # Unblock it
+        result = runner.invoke(main, ["feature", "unblock", "F-001"])
+        assert result.exit_code == 0
+        assert "Unblocked" in result.output
+
+    def test_feature_unblock_not_blocked(self, runner, initialized_project):
+        """Test unblock on a feature that isn't blocked."""
+        import os
+        os.chdir(initialized_project)
+        # Add feature (not blocked)
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        # Try to unblock
+        result = runner.invoke(main, ["feature", "unblock", "F-001"])
+        assert result.exit_code == 0
+        assert "not blocked" in result.output.lower()
+
+    def test_feature_unblock_not_found(self, runner, initialized_project):
+        """Test unblock on non-existent feature."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["feature", "unblock", "F-999"])
+        assert "not found" in result.output.lower()
+
 
 class TestProgressCommands:
     """Tests for progress commands."""

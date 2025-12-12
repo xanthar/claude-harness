@@ -370,8 +370,77 @@ class TestInitializeProjectFunction:
 
         result = initialize_project(str(tmp_path))
 
-        mock_initializer_class.assert_called_once_with(str(tmp_path))
+        mock_initializer_class.assert_called_once_with(str(tmp_path), non_interactive=False)
         mock_instance.run.assert_called_once()
+
+    @patch("claude_harness.initializer.Initializer")
+    def test_initialize_project_non_interactive(self, mock_initializer_class, tmp_path):
+        """Test the convenience function with non-interactive mode."""
+        mock_instance = MagicMock()
+        mock_instance.run.return_value = HarnessConfig(project_name="test")
+        mock_initializer_class.return_value = mock_instance
+
+        result = initialize_project(str(tmp_path), non_interactive=True)
+
+        mock_initializer_class.assert_called_once_with(str(tmp_path), non_interactive=True)
+        mock_instance.run.assert_called_once()
+
+
+class TestInitializerNonInteractive:
+    """Tests for non-interactive initialization mode."""
+
+    def test_non_interactive_creates_files(self, tmp_path):
+        """Test that non-interactive mode creates all required files."""
+        init = Initializer(str(tmp_path), non_interactive=True)
+        config = init.run()
+
+        # Should have used directory name as project name
+        assert config.project_name == tmp_path.name
+
+        # Should have created harness files
+        harness_dir = tmp_path / ".claude-harness"
+        assert harness_dir.exists()
+        assert (harness_dir / "config.json").exists()
+        assert (harness_dir / "features.json").exists()
+        assert (harness_dir / "progress.md").exists()
+
+        # Should have created scripts
+        scripts_dir = tmp_path / "scripts"
+        assert scripts_dir.exists()
+        assert (scripts_dir / "init.sh").exists()
+
+        # Should have enabled Claude hooks
+        assert (tmp_path / ".claude" / "settings.json").exists()
+
+    def test_non_interactive_uses_detected_values(self, tmp_path):
+        """Test that non-interactive mode uses detected stack values."""
+        # Create a Python project
+        (tmp_path / "requirements.txt").write_text("flask>=2.0\npytest\n")
+        (tmp_path / ".git").mkdir()
+
+        init = Initializer(str(tmp_path), non_interactive=True)
+        config = init.run()
+
+        # Should have detected Python
+        assert config.language == "python"
+        # Should have detected Flask (detector may return capitalized)
+        assert config.framework.lower() == "flask"
+        # Should have detected pytest
+        assert config.test_framework == "pytest"
+
+    def test_non_interactive_defaults_for_new_project(self, tmp_path):
+        """Test that non-interactive mode uses sensible defaults for new projects."""
+        init = Initializer(str(tmp_path), non_interactive=True)
+        config = init.run()
+
+        # Should use defaults
+        assert config.language == "python"
+        assert config.test_framework == "pytest"
+        assert config.venv_path == "venv"
+        assert config.env_file == ".env"
+        assert config.test_directory == "tests"
+        assert config.e2e_enabled is True
+        assert config.create_claude_hooks is True
 
 
 class TestInitializerEdgeCases:

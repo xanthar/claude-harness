@@ -77,14 +77,16 @@ def init(path: str, non_interactive: bool):
     # Check if already initialized
     harness_dir = project_path / ".claude-harness"
     if harness_dir.exists():
-        if not click.confirm(
+        if non_interactive:
+            console.print("[yellow]Harness already initialized. Reinitializing in non-interactive mode...[/yellow]")
+        elif not click.confirm(
             "Harness already initialized. Reinitialize?", default=False
         ):
             console.print("[yellow]Aborted.[/yellow]")
             return
 
     try:
-        config = initialize_project(str(project_path))
+        config = initialize_project(str(project_path), non_interactive=non_interactive)
         console.print(f"\n[green]Harness initialized for: {config.project_name}[/green]")
     except KeyboardInterrupt:
         console.print("\n[yellow]Initialization cancelled.[/yellow]")
@@ -238,6 +240,33 @@ def feature_block(ctx, feature_id: str, reason: str):
         pt.add_blocker(f"{feature.id}: {reason}")
     else:
         console.print(f"[red]Feature not found: {feature_id}[/red]")
+
+
+@feature.command("unblock")
+@click.argument("feature_id")
+@click.pass_context
+def feature_unblock(ctx, feature_id: str):
+    """Unblock a blocked feature (moves back to pending)."""
+    project_path = ctx.obj["project_path"]
+    fm = FeatureManager(project_path)
+
+    # Get the feature first to check if it's actually blocked
+    feature = fm.get_feature(feature_id)
+
+    if not feature:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        return
+
+    if feature.status != "blocked":
+        console.print(f"[yellow]Feature {feature_id} is not blocked (status: {feature.status})[/yellow]")
+        return
+
+    # Move from blocked to pending
+    feature = fm.update_status(feature_id, "pending")
+
+    if feature:
+        console.print(f"[green]Unblocked: {feature.id} - {feature.name}[/green]")
+        console.print("[dim]Feature moved back to pending status[/dim]")
 
 
 @feature.command("subtask")
