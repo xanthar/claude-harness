@@ -13,7 +13,8 @@ A comprehensive harness that optimizes Claude Code sessions by addressing the fo
 
 - **Session Continuity**: `progress.md` maintains context between sessions
 - **Feature Management**: Track features/tasks with status, subtasks, and E2E validation
-- **Startup Ritual**: `init.sh` script verifies environment, starts services, shows progress
+- **Context Tracking**: Monitor estimated token usage and context budget (NEW!)
+- **Startup Ritual**: `init.sh` (Bash) and `init.ps1` (PowerShell) scripts
 - **Git Safety Hooks**: Block dangerous operations (commits to main, force pushes)
 - **E2E Testing**: Playwright integration with test generation
 - **Stack Detection**: Automatically detects your project's language, framework, database
@@ -118,6 +119,55 @@ claude-harness e2e run
 claude-harness e2e run --headed  # Visible browser
 ```
 
+### Context Tracking
+
+Monitor estimated token usage to avoid running out of context:
+
+```bash
+# Show context usage
+claude-harness context show
+claude-harness context show --full  # Detailed view
+
+# Reset for new session
+claude-harness context reset
+
+# Set context budget
+claude-harness context budget 200000
+
+# Track per-task usage
+claude-harness context start-task F-001
+# ... do work ...
+claude-harness context end-task F-001
+
+# Output metadata for embedding
+claude-harness context metadata
+```
+
+The status command also shows compact context usage:
+
+```
+[ * ] Context: 15.2% used | ~169,600 tokens remaining | 12 files read | 5 commands
+```
+
+### Hooks Setup
+
+Configure Claude Code hooks for automatic tracking and safety. See [docs/HOOKS.md](docs/HOOKS.md) for detailed setup.
+
+Quick setup - add to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": ".claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\""
+      }
+    ]
+  }
+}
+```
+
 ## Project Structure After Init
 
 ```
@@ -128,12 +178,14 @@ your-project/
 │   ├── config.json            # Project configuration
 │   ├── features.json          # Feature/task tracking
 │   ├── progress.md            # Session continuity log
+│   ├── context_metrics.json   # Context usage tracking
 │   ├── hooks/
 │   │   ├── check-git-safety.sh
 │   │   └── log-activity.sh
 │   └── session-history/       # Archived sessions
 ├── scripts/
-│   └── init.sh                # Startup ritual script
+│   ├── init.sh                # Startup ritual (Bash)
+│   └── init.ps1               # Startup ritual (PowerShell)
 └── e2e/
     ├── conftest.py            # Playwright fixtures
     ├── pytest.ini
@@ -257,6 +309,11 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | `claude-harness progress completed ITEM` | Add completed item |
 | `claude-harness progress wip ITEM` | Add WIP item |
 | `claude-harness progress new-session` | Start new session |
+| `claude-harness context show` | Show context usage |
+| `claude-harness context reset` | Reset context metrics |
+| `claude-harness context budget N` | Set token budget |
+| `claude-harness context start-task ID` | Start tracking task |
+| `claude-harness context end-task ID` | End tracking task |
 | `claude-harness e2e install` | Install Playwright |
 | `claude-harness e2e run` | Run E2E tests |
 | `claude-harness e2e generate ID` | Generate E2E test |

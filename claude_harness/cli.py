@@ -18,6 +18,7 @@ from . import __version__
 from .initializer import initialize_project
 from .feature_manager import FeatureManager
 from .progress_tracker import ProgressTracker
+from .context_tracker import ContextTracker
 from .detector import detect_stack
 
 
@@ -97,14 +98,15 @@ def init(path: str, non_interactive: bool):
 
 
 @main.command()
+@click.option("--compact", "-c", is_flag=True, help="Show compact status")
 @click.pass_context
-def status(ctx):
+def status(ctx, compact: bool):
     """Show current harness status.
 
     Displays:
     - Current feature in progress
     - Session progress summary
-    - Git branch status
+    - Context usage (if enabled)
     """
     project_path = ctx.obj["project_path"]
 
@@ -113,6 +115,11 @@ def status(ctx):
     if not harness_dir.exists():
         console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
         sys.exit(1)
+
+    # Show context status first (compact always)
+    ct = ContextTracker(project_path)
+    if ct.is_enabled():
+        ct.show_status(compact=True)
 
     # Show feature status
     fm = FeatureManager(project_path)
@@ -587,6 +594,135 @@ class Test{feature.id.replace("-", "")}:
         f.write(test_content)
 
     console.print(f"[green]Generated: {test_path}[/green]")
+
+
+# --- Context Commands ---
+
+
+@main.group()
+@click.pass_context
+def context(ctx):
+    """Context/token usage tracking."""
+    pass
+
+
+@context.command("show")
+@click.option("--full", "-f", is_flag=True, help="Show full details")
+@click.pass_context
+def context_show(ctx, full: bool):
+    """Show context usage status."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    if not ct.is_enabled():
+        console.print("[yellow]Context tracking is disabled in config.[/yellow]")
+        return
+
+    ct.show_status(compact=not full)
+
+
+@context.command("reset")
+@click.pass_context
+def context_reset(ctx):
+    """Reset context metrics for new session."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    ct.reset_session()
+    console.print("[green]Context metrics reset for new session.[/green]")
+
+
+@context.command("track-file")
+@click.argument("filepath")
+@click.argument("chars", type=int)
+@click.option("--write", "-w", is_flag=True, help="Track as write (default: read)")
+@click.pass_context
+def context_track_file(ctx, filepath: str, chars: int, write: bool):
+    """Manually track a file operation (for hooks)."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    if write:
+        ct.track_file_write(filepath, chars)
+        console.print(f"[dim]Tracked file write: {filepath} ({chars} chars)[/dim]")
+    else:
+        ct.track_file_read(filepath, chars)
+        console.print(f"[dim]Tracked file read: {filepath} ({chars} chars)[/dim]")
+
+
+@context.command("track-command")
+@click.argument("command")
+@click.option("--output-chars", "-o", default=0, type=int, help="Output character count")
+@click.pass_context
+def context_track_command(ctx, command: str, output_chars: int):
+    """Manually track a command execution (for hooks)."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    ct.track_command(command, output_chars)
+    console.print(f"[dim]Tracked command: {command[:50]}...[/dim]")
+
+
+@context.command("start-task")
+@click.argument("task_id")
+@click.pass_context
+def context_start_task(ctx, task_id: str):
+    """Start tracking a specific task."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    ct.start_task(task_id)
+    console.print(f"[green]Started tracking task: {task_id}[/green]")
+
+
+@context.command("end-task")
+@click.argument("task_id")
+@click.pass_context
+def context_end_task(ctx, task_id: str):
+    """End tracking a specific task."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    ct.end_task(task_id)
+    console.print(f"[green]Ended tracking task: {task_id}[/green]")
+
+
+@context.command("budget")
+@click.argument("tokens", type=int)
+@click.pass_context
+def context_budget(ctx, tokens: int):
+    """Set context budget (tokens)."""
+    import json
+
+    project_path = ctx.obj["project_path"]
+    config_file = Path(project_path) / ".claude-harness" / "config.json"
+
+    if config_file.exists():
+        with open(config_file) as f:
+            config = json.load(f)
+
+        config.setdefault("context_tracking", {})["budget"] = tokens
+
+        with open(config_file, "w") as f:
+            json.dump(config, f, indent=2)
+
+        console.print(f"[green]Set context budget to {tokens:,} tokens[/green]")
+    else:
+        console.print("[red]Config not found. Run 'claude-harness init' first.[/red]")
+
+
+@context.command("metadata")
+@click.pass_context
+def context_metadata(ctx):
+    """Output context metadata string (for embedding in outputs)."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    metadata = ct.get_metadata_string()
+    if metadata:
+        console.print(metadata)
+    else:
+        console.print("[dim]Context tracking disabled[/dim]")
 
 
 # --- Run Commands ---
