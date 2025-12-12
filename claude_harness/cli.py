@@ -725,6 +725,79 @@ def context_metadata(ctx):
         console.print("[dim]Context tracking disabled[/dim]")
 
 
+@context.command("summary")
+@click.pass_context
+def context_summary(ctx):
+    """Generate a compressed session summary."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    summary = ct.generate_summary()
+    console.print(summary)
+
+
+@context.command("handoff")
+@click.option("--save", "-s", is_flag=True, help="Save to file in session-history/")
+@click.option("--filename", "-f", default=None, help="Custom filename")
+@click.pass_context
+def context_handoff(ctx, save: bool, filename: str):
+    """Generate a handoff document for continuing in a new session.
+
+    Use this when context is filling up and you need to continue
+    work in a fresh Claude Code session.
+    """
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    if save:
+        filepath = ct.save_handoff(filename)
+        console.print(f"[green]Handoff document saved to: {filepath}[/green]")
+        console.print("[dim]Share this file with your next session for seamless continuation.[/dim]")
+    else:
+        handoff = ct.generate_handoff()
+        console.print(handoff)
+
+
+@context.command("compress")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def context_compress(ctx, yes: bool):
+    """Compress current session and prepare for handoff.
+
+    This will:
+    1. Generate and save a handoff document
+    2. Archive current progress
+    3. Reset context metrics
+
+    Use this when ending a long session or hitting context limits.
+    """
+    project_path = ctx.obj["project_path"]
+
+    if not yes:
+        console.print("[yellow]This will:[/yellow]")
+        console.print("  1. Save a handoff document to session-history/")
+        console.print("  2. Archive current progress.md")
+        console.print("  3. Reset context metrics")
+        console.print()
+        if not click.confirm("Continue?", default=True):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    ct = ContextTracker(project_path)
+    results = ct.compress_session()
+
+    console.print()
+    console.print("[green]Session compressed successfully![/green]")
+    console.print(f"  Handoff saved: {results['handoff']}")
+    console.print("  Progress archived: Yes")
+    console.print("  Metrics reset: Yes")
+    console.print()
+    console.print("[bold]Next steps:[/bold]")
+    console.print(f"  1. Start a new Claude Code session")
+    console.print(f"  2. Read the handoff document: {results['handoff']}")
+    console.print("  3. Run `./scripts/init.sh` to verify environment")
+
+
 # --- Run Commands ---
 
 

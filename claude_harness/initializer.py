@@ -1353,8 +1353,36 @@ echo "[$(date -Iseconds)] $TOOL_NAME: ${TOOL_INPUT:0:200}" >> "$LOG_FILE"
             f.write(activity_logger)
         os.chmod(logger_path, 0o755)
 
+        # Progress tracking hook
+        track_progress = '''#!/bin/bash
+# Claude Harness - Auto Progress Tracker
+# Automatically tracks modified files in progress.md
+
+FILEPATH="$1"
+ACTION="${2:-write}"  # write or edit
+
+# Skip if not a harness project
+[ -f ".claude-harness/config.json" ] || exit 0
+
+# Skip harness internal files and common non-code files
+case "$FILEPATH" in
+    .claude-harness/*|.git/*|*.log|*.pyc|__pycache__/*|node_modules/*|.env*)
+        exit 0
+        ;;
+esac
+
+# Track the file modification
+claude-harness progress file "$FILEPATH" 2>/dev/null || true
+'''
+
+        track_progress_path = hooks_dir / "track-progress.sh"
+        with open(track_progress_path, "w") as f:
+            f.write(track_progress)
+        os.chmod(track_progress_path, 0o755)
+
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/check-git-safety.sh")
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/log-activity.sh")
+        console.print(f"  [green]Created:[/green] .claude-harness/hooks/track-progress.sh")
 
     def _write_claude_settings(self):
         """Write Claude Code settings.json with harness hooks."""
@@ -1378,7 +1406,11 @@ echo "[$(date -Iseconds)] $TOOL_NAME: ${TOOL_INPUT:0:200}" >> "$LOG_FILE"
                     },
                     {
                         "matcher": "Write",
-                        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" 1000 --write",
+                        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" write",
+                    },
+                    {
+                        "matcher": "Edit",
+                        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" edit",
                     },
                     {
                         "matcher": "Bash",
@@ -1387,7 +1419,7 @@ echo "[$(date -Iseconds)] $TOOL_NAME: ${TOOL_INPUT:0:200}" >> "$LOG_FILE"
                 ],
                 "Stop": [
                     {
-                        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; echo '---'; echo 'Remember to update progress.md!')",
+                        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; echo '---'; claude-harness progress show)",
                     }
                 ],
             },

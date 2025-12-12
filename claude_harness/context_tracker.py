@@ -510,6 +510,260 @@ class ContextTracker:
 """
 
 
+    def generate_summary(self) -> str:
+        """Generate a compressed summary of the current session.
+
+        This creates a concise summary that can be used for:
+        - Quick session overview
+        - Context handoff between sessions
+        - Progress documentation
+        """
+        metrics = self._load_metrics()
+
+        # Get progress data
+        progress_file = self.project_path / ".claude-harness" / "progress.md"
+        features_file = self.project_path / ".claude-harness" / "features.json"
+
+        progress_data = {}
+        features_data = {}
+
+        if progress_file.exists():
+            from .progress_tracker import ProgressTracker
+            pt = ProgressTracker(str(self.project_path))
+            progress = pt.get_current_progress()
+            progress_data = {
+                "completed": progress.completed,
+                "in_progress": progress.in_progress,
+                "blockers": progress.blockers,
+                "files_modified": progress.files_modified,
+            }
+
+        if features_file.exists():
+            import json
+            with open(features_file) as f:
+                features_data = json.load(f)
+
+        # Build summary
+        lines = [
+            "# Session Summary",
+            "",
+            f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            "",
+            "## Context Usage",
+            f"- Tokens used: {metrics.estimated_total_tokens:,} / {metrics.context_budget:,} ({metrics.context_usage_percent:.1f}%)",
+            f"- Files read: {len(metrics.files_read)}",
+            f"- Files written: {len(metrics.files_written)}",
+            f"- Commands: {metrics.commands_executed}",
+            f"- Status: {metrics.status.upper()}",
+            "",
+        ]
+
+        # Current feature
+        if features_data.get("features"):
+            in_progress = [f for f in features_data["features"] if f.get("status") == "in_progress"]
+            if in_progress:
+                feat = in_progress[0]
+                lines.extend([
+                    "## Current Feature",
+                    f"**{feat.get('id', 'N/A')}**: {feat.get('name', 'Unknown')}",
+                    "",
+                ])
+                if feat.get("subtasks"):
+                    done = sum(1 for s in feat["subtasks"] if s.get("done"))
+                    total = len(feat["subtasks"])
+                    lines.append(f"Progress: {done}/{total} subtasks completed")
+                    lines.append("")
+                    for i, st in enumerate(feat["subtasks"]):
+                        status = "x" if st.get("done") else " "
+                        lines.append(f"  [{status}] {st.get('name', 'Unknown')}")
+                    lines.append("")
+
+        # Progress summary
+        if progress_data.get("completed"):
+            lines.extend([
+                "## Completed This Session",
+            ])
+            for item in progress_data["completed"][:10]:  # Limit to 10
+                lines.append(f"- {item}")
+            if len(progress_data["completed"]) > 10:
+                lines.append(f"- ... and {len(progress_data['completed']) - 10} more")
+            lines.append("")
+
+        if progress_data.get("in_progress"):
+            lines.extend([
+                "## In Progress",
+            ])
+            for item in progress_data["in_progress"]:
+                lines.append(f"- {item}")
+            lines.append("")
+
+        if progress_data.get("blockers") and progress_data["blockers"] != ["None"]:
+            lines.extend([
+                "## Blockers",
+            ])
+            for item in progress_data["blockers"]:
+                lines.append(f"- {item}")
+            lines.append("")
+
+        # Key files modified
+        if progress_data.get("files_modified"):
+            lines.extend([
+                "## Key Files Modified",
+            ])
+            for item in progress_data["files_modified"][:15]:  # Limit to 15
+                lines.append(f"- {item}")
+            if len(progress_data["files_modified"]) > 15:
+                lines.append(f"- ... and {len(progress_data['files_modified']) - 15} more")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def generate_handoff(self) -> str:
+        """Generate a comprehensive handoff document for continuing in a new session.
+
+        This creates a detailed document that includes everything needed to
+        continue work in a fresh context window.
+        """
+        summary = self.generate_summary()
+        metrics = self._load_metrics()
+
+        # Load additional context
+        config_file = self.project_path / ".claude-harness" / "config.json"
+        features_file = self.project_path / ".claude-harness" / "features.json"
+
+        config_data = {}
+        features_data = {}
+
+        if config_file.exists():
+            import json
+            with open(config_file) as f:
+                config_data = json.load(f)
+
+        if features_file.exists():
+            import json
+            with open(features_file) as f:
+                features_data = json.load(f)
+
+        lines = [
+            "# Session Handoff Document",
+            "",
+            "**Purpose:** Continue work in a new Claude Code session",
+            "",
+            f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            "",
+            "---",
+            "",
+        ]
+
+        # Project context
+        if config_data:
+            lines.extend([
+                "## Project Context",
+                "",
+                f"**Project:** {config_data.get('project_name', 'Unknown')}",
+                "",
+            ])
+            stack = config_data.get("stack", {})
+            if stack:
+                lines.append(f"**Stack:** {stack.get('language', 'Unknown')} / {stack.get('framework', 'None')} / {stack.get('database', 'None')}")
+                lines.append("")
+
+        # Add summary
+        lines.extend([
+            "---",
+            "",
+            summary,
+            "",
+            "---",
+            "",
+        ])
+
+        # Pending features
+        if features_data.get("features"):
+            pending = [f for f in features_data["features"] if f.get("status") == "pending"]
+            if pending:
+                lines.extend([
+                    "## Pending Features (Next Up)",
+                    "",
+                ])
+                for feat in pending[:5]:  # Top 5
+                    lines.append(f"- **{feat.get('id')}**: {feat.get('name')}")
+                lines.append("")
+
+        # Recommended next steps
+        lines.extend([
+            "## Recommended Actions for New Session",
+            "",
+            "1. Run `./scripts/init.sh` to verify environment",
+            "2. Run `claude-harness status` to see current state",
+            "3. Read this handoff document for context",
+            "4. Continue work on the current feature or pick next pending",
+            "5. Update progress.md when work is complete",
+            "",
+        ])
+
+        # Important notes
+        if metrics.status in ("warning", "critical"):
+            lines.extend([
+                "## Important Notes",
+                "",
+                f"- Previous session hit {metrics.context_usage_percent:.0f}% context usage",
+                "- Consider breaking large tasks into smaller chunks",
+                "- Use Task agents for code exploration to save context",
+                "",
+            ])
+
+        return "\n".join(lines)
+
+    def save_handoff(self, filename: str = None) -> str:
+        """Generate and save handoff document to a file.
+
+        Args:
+            filename: Optional filename (default: handoff_YYYYMMDD_HHMM.md)
+
+        Returns:
+            Path to saved file
+        """
+        if filename is None:
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M")
+            filename = f"handoff_{timestamp}.md"
+
+        handoff_dir = self.project_path / ".claude-harness" / "session-history"
+        handoff_dir.mkdir(parents=True, exist_ok=True)
+
+        filepath = handoff_dir / filename
+        content = self.generate_handoff()
+
+        with open(filepath, "w") as f:
+            f.write(content)
+
+        return str(filepath)
+
+    def compress_session(self) -> dict:
+        """Compress current session: save handoff, reset metrics, archive progress.
+
+        Returns:
+            Dictionary with paths to saved files
+        """
+        results = {}
+
+        # Save handoff document
+        handoff_path = self.save_handoff()
+        results["handoff"] = handoff_path
+
+        # Archive current progress
+        from .progress_tracker import ProgressTracker
+        pt = ProgressTracker(str(self.project_path))
+        pt.start_new_session()
+        results["progress_archived"] = True
+
+        # Reset context metrics
+        self.reset_session()
+        results["metrics_reset"] = True
+
+        return results
+
+
 def get_context_tracker(project_path: str = ".") -> ContextTracker:
     """Get a context tracker instance."""
     return ContextTracker(project_path)

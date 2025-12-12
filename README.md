@@ -197,14 +197,48 @@ The status command also shows compact context usage:
 [ * ] Context: 15.2% used | ~169,600 tokens remaining | 12 files read | 5 commands
 ```
 
+### Session Compression & Handoff
+
+When context is filling up, compress your session for seamless continuation:
+
+```bash
+# Generate a session summary
+claude-harness context summary
+
+# Create a handoff document for the next session
+claude-harness context handoff
+claude-harness context handoff --save  # Save to file
+
+# Full compression: handoff + archive progress + reset metrics
+claude-harness context compress
+```
+
+The handoff document includes:
+- Project context and stack info
+- Current feature progress and subtasks
+- Completed work this session
+- Files modified
+- Pending features
+- Recommended next steps
+
+**Workflow for long sessions:**
+1. Work until context hits warning level (~70%)
+2. Run `claude-harness context compress`
+3. Start a new Claude Code session
+4. Read the saved handoff document for context
+5. Continue seamlessly
+
 ### Hooks Setup
 
 Claude Code hooks enable automatic tracking and safety enforcement. During `claude-harness init`, you'll be asked if you want to auto-create `.claude/settings.json` with recommended hooks.
 
 **Auto-created hooks include:**
 - **PreToolUse**: Git safety checks (block commits to protected branches)
-- **PostToolUse**: Context tracking (file reads/writes), activity logging
-- **Stop**: Show context summary and reminder to update progress
+- **PostToolUse**:
+  - Context tracking (file reads)
+  - Auto-progress tracking (file writes/edits added to progress.md)
+  - Activity logging
+- **Stop**: Show context summary and progress status
 
 See [docs/HOOKS.md](docs/HOOKS.md) for detailed manual setup and customization.
 
@@ -223,11 +257,19 @@ See [docs/HOOKS.md](docs/HOOKS.md) for detailed manual setup and customization.
       {
         "matcher": "Read",
         "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" $(wc -c < \"$TOOL_INPUT\" 2>/dev/null || echo 1000)"
+      },
+      {
+        "matcher": "Write",
+        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" write"
+      },
+      {
+        "matcher": "Edit",
+        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" edit"
       }
     ],
     "Stop": [
       {
-        "command": "[ -f .claude-harness/config.json ] && claude-harness context show"
+        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; claude-harness progress show)"
       }
     ]
   }
@@ -375,12 +417,16 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | `claude-harness progress show` | Show progress |
 | `claude-harness progress completed ITEM` | Add completed item |
 | `claude-harness progress wip ITEM` | Add WIP item |
+| `claude-harness progress file PATH` | Track modified file |
 | `claude-harness progress new-session` | Start new session |
 | `claude-harness context show` | Show context usage |
 | `claude-harness context reset` | Reset context metrics |
 | `claude-harness context budget N` | Set token budget |
 | `claude-harness context start-task ID` | Start tracking task |
 | `claude-harness context end-task ID` | End tracking task |
+| `claude-harness context summary` | Generate session summary |
+| `claude-harness context handoff` | Generate handoff document |
+| `claude-harness context compress` | Compress session (handoff + archive + reset) |
 | `claude-harness e2e install` | Install Playwright |
 | `claude-harness e2e run` | Run E2E tests |
 | `claude-harness e2e generate ID` | Generate E2E test |
