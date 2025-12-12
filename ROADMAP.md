@@ -14,28 +14,28 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 ### High Priority
 
 #### 1. Feature Info Command
-- [ ] `claude-harness feature info <ID>` - Show detailed feature information
+- [x] `claude-harness feature info <ID>` - Show detailed feature information
 - Display all subtasks with status
 - Show creation date, time in status
 - Display notes and blocked reason history
 
 #### 2. Subtask Name-Based Completion
-- [ ] `claude-harness feature done <ID> <subtask-name>` - Complete subtask by name
+- [x] `claude-harness feature done <ID> <subtask-name>` - Complete subtask by name
 - Fuzzy matching for partial names
 - Confirmation prompt if multiple matches
 
 #### 3. Feature Notes Command
-- [ ] `claude-harness feature note <ID> "note text"` - Add notes to features
+- [x] `claude-harness feature note <ID> "note text"` - Add notes to features
 - Timestamped notes
 - View notes in feature info
 
 ### Medium Priority
 
 #### 4. Progress History Command
-- [ ] `claude-harness progress history` - View previous sessions
+- [x] `claude-harness progress history` - View previous sessions
 - List archived sessions with summaries
-- `--last N` to show last N sessions
-- `--date YYYY-MM-DD` to show specific date
+- `--limit N` to show last N sessions
+- `--show <index>` to view specific session details
 
 #### 5. Enhanced Feature Filtering
 - [ ] `claude-harness feature list --status blocked` - Already exists, document better
@@ -124,13 +124,19 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ## Completed Features
 
+### v1.1.0 (In Progress)
+- [x] Feature info command (`feature info <ID>`)
+- [x] Subtask name-based completion (`feature done <ID> <name>`)
+- [x] Feature notes command (`feature note <ID> "text"`)
+- [x] Progress history command (`progress history`)
+
 ### v1.0.0 (2025-12-12)
 - [x] Non-interactive initialization (`--non-interactive`)
 - [x] Feature unblock command (`feature unblock`)
 - [x] Context compression and handoff
 - [x] Auto-progress tracking hooks
 - [x] MCP Playwright server
-- [x] Comprehensive test coverage (157 tests)
+- [x] Comprehensive test coverage (170 tests)
 
 ---
 
