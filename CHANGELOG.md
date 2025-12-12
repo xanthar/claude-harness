@@ -126,6 +126,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2025-12-12
+
+### Added
+
+#### Slash Commands Integration
+- **35 Slash Commands** - Full integration with Claude Code slash commands
+  - Commands automatically generated during `claude-harness init`
+  - `/harness-init` - Interactive initialization inside Claude Code
+  - `/harness-status` - Show current harness status
+  - `/harness-feature-*` - Feature management commands (add, start, complete, etc.)
+  - `/harness-progress-*` - Progress tracking commands
+  - `/harness-context-*` - Context management commands
+  - `/harness-delegation-*` - Delegation management commands
+  - `/harness-e2e-generate` - Generate E2E tests
+
+- **CLI Commands for Slash Command Management**
+  - `claude-harness commands generate` - Generate/regenerate slash commands
+  - `claude-harness commands list` - List all available slash commands
+
+- **Interactive Init Inside Claude Code**
+  - `/harness-init` command asks questions and fills in answers
+  - Detects project stack first, then prompts for configuration
+  - Works seamlessly within Claude Code sessions
+
+### Changed
+- Initializer now automatically creates `.claude/commands/` directory
+- Added README.md to commands directory explaining usage
+
+### Testing
+- 246 tests (up from 218)
+- New tests for command generator module
+
+---
+
 ## [1.3.0] - 2025-12-12
 
 ### Added
@@ -188,6 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.4.0 | 2025-12-12 | 35 slash commands for Claude Code integration |
 | 1.3.0 | 2025-12-12 | Subagent delegation system with rule-based task matching |
 | 1.1.0 | 2025-12-12 | Feature info, notes, bulk operations, enhanced filtering |
 | 1.0.0 | 2025-12-12 | Initial release with full feature set |

@@ -18,6 +18,7 @@ from rich.table import Table
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from .detector import StackDetector, DetectedStack
+from .command_generator import write_commands_to_directory, generate_commands_readme
 
 
 console = Console()
@@ -754,6 +755,9 @@ class Initializer:
         # Generate E2E setup if enabled
         if self.config.e2e_enabled:
             self._write_e2e_setup()
+
+        # Generate slash commands for Claude Code integration
+        self._write_slash_commands()
 
     def _write_config(self):
         """Write config.json."""
@@ -1790,6 +1794,23 @@ addopts = -v --tb=short
         console.print(f"  [green]Created:[/green] e2e/tests/test_example.py")
         console.print(f"  [green]Created:[/green] e2e/pytest.ini")
 
+    def _write_slash_commands(self):
+        """Write Claude Code slash commands for harness integration."""
+        claude_dir = self.project_path / ".claude"
+        claude_dir.mkdir(exist_ok=True)
+
+        commands_dir = claude_dir / "commands"
+        commands_dir.mkdir(exist_ok=True)
+
+        # Write all harness commands
+        created_files = write_commands_to_directory(commands_dir)
+
+        # Generate README for commands
+        generate_commands_readme(commands_dir)
+
+        console.print(f"  [green]Created:[/green] .claude/commands/ ({len(created_files)} slash commands)")
+        console.print(f"  [green]Created:[/green] .claude/commands/README.md")
+
     def _print_summary(self):
         """Print initialization summary."""
         console.print()
@@ -1829,6 +1850,17 @@ addopts = -v --tb=short
             console.print("  e2e/conftest.py")
             console.print("  e2e/tests/test_example.py")
             console.print("  e2e/pytest.ini")
+
+        console.print("  .claude/commands/ (35 slash commands)")
+        console.print("  .claude/commands/README.md")
+
+        console.print("\n[bold]Slash Commands Available:[/bold]")
+        console.print("  Inside Claude Code, use commands like:")
+        console.print("    [cyan]/harness-status[/cyan] - Show current status")
+        console.print("    [cyan]/harness-feature-add[/cyan] - Add a new feature")
+        console.print("    [cyan]/harness-feature-start[/cyan] - Start working on a feature")
+        console.print("    [cyan]/harness-delegation-suggest[/cyan] - Get delegation suggestions")
+        console.print("  See .claude/commands/README.md for full list")
 
         console.print()
 
