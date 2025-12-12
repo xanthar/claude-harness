@@ -126,6 +126,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2025-12-12
+
+### Added
+
+#### Subagent Delegation System
+- **DelegationManager** - Core delegation management with rule-based task matching
+  - Pattern-based rule matching (regex support)
+  - Priority-based rule selection
+  - Token savings estimation per delegation
+  - Delegation tracking and metrics
+
+- **Delegation CLI Commands** (`claude-harness delegation`)
+  - `delegation status` - Show delegation status and metrics
+  - `delegation enable/disable` - Toggle delegation globally
+  - `delegation rules` - List all delegation rules with details
+  - `delegation add-rule` - Add custom delegation rules with patterns, type, priority, constraints
+  - `delegation remove-rule` - Remove rules by name
+  - `delegation enable-rule/disable-rule` - Toggle specific rules
+  - `delegation suggest <ID>` - Get delegation suggestions for feature subtasks
+  - `delegation auto --on/--off` - Configure auto-delegation hints in CLAUDE.md
+
+- **CLAUDE.md Delegation Integration**
+  - Generate delegation section when delegation is enabled
+  - Include subagent type recommendations per subtask
+  - Token savings estimates per task type
+  - Constraint propagation to subagents
+
+#### Default Delegation Rules
+| Rule | Patterns | Subagent Type | Est. Savings |
+|------|----------|---------------|--------------|
+| exploration | explore.*, find.*, search.*, investigate.* | explore | 22K tokens |
+| testing | test.*, write.*test, unit.*test | test | 15K tokens |
+| documentation | document.*, write.*doc, update.*readme | document | 9K tokens |
+| review | review.*, audit.*, check.*, validate.* | review | 17K tokens |
+
+### Benefits
+- **40-70% context savings** by delegating to specialized subagents
+- **Parallel execution** of independent tasks
+- **Summary-based returns** (3-5K tokens vs 25K+ full execution)
+- **Pattern-based matching** for automatic delegation suggestions
+
+### Documentation
+- Comprehensive research report: `docs/SUBAGENT_DELEGATION_RESEARCH.md`
+- Updated ROADMAP with delegation roadmap (v1.3.0-v1.5.0)
+
+### Testing
+- 35+ new tests for delegation module
+- Tests for DelegationRule, DelegationConfig, DelegationResult, DelegationManager
+
+---
+
 ## [Unreleased]
 
 ### Planned
@@ -137,5 +188,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.3.0 | 2025-12-12 | Subagent delegation system with rule-based task matching |
 | 1.1.0 | 2025-12-12 | Feature info, notes, bulk operations, enhanced filtering |
 | 1.0.0 | 2025-12-12 | Initial release with full feature set |

@@ -19,6 +19,7 @@ from .initializer import initialize_project
 from .feature_manager import FeatureManager
 from .progress_tracker import ProgressTracker
 from .context_tracker import ContextTracker
+from .delegation_manager import DelegationManager, DelegationRule
 from .detector import detect_stack
 
 
@@ -1098,6 +1099,197 @@ def context_compress(ctx, yes: bool):
     console.print(f"  1. Start a new Claude Code session")
     console.print(f"  2. Read the handoff document: {results['handoff']}")
     console.print("  3. Run `./scripts/init.sh` to verify environment")
+
+
+# --- Delegation Commands ---
+
+
+@main.group()
+@click.pass_context
+def delegation(ctx):
+    """Manage subagent delegation settings."""
+    pass
+
+
+@delegation.command("status")
+@click.pass_context
+def delegation_status(ctx):
+    """Show delegation status and metrics."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+    dm.show_status()
+
+
+@delegation.command("enable")
+@click.pass_context
+def delegation_enable(ctx):
+    """Enable subagent delegation."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+    dm.enable()
+    console.print("[green]Subagent delegation enabled[/green]")
+    console.print("[dim]Delegation hints will be included in CLAUDE.md[/dim]")
+
+
+@delegation.command("disable")
+@click.pass_context
+def delegation_disable(ctx):
+    """Disable subagent delegation."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+    dm.disable()
+    console.print("[yellow]Subagent delegation disabled[/yellow]")
+
+
+@delegation.command("rules")
+@click.pass_context
+def delegation_rules(ctx):
+    """Show all delegation rules."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+    dm.show_rules()
+
+
+@delegation.command("add-rule")
+@click.option("--name", "-n", required=True, help="Rule name")
+@click.option("--patterns", "-p", required=True, help="Comma-separated task patterns (regex)")
+@click.option("--type", "-t", "subagent_type", default="general",
+              type=click.Choice(["explore", "test", "document", "review", "general"]),
+              help="Subagent type")
+@click.option("--priority", default=5, type=int, help="Priority (1-10, higher = more likely)")
+@click.option("--constraints", "-c", default="", help="Comma-separated constraints")
+@click.pass_context
+def delegation_add_rule(ctx, name: str, patterns: str, subagent_type: str,
+                        priority: int, constraints: str):
+    """Add a custom delegation rule.
+
+    Examples:
+        claude-harness delegation add-rule -n migration -p "migrate.*,upgrade.*" -t explore
+        claude-harness delegation add-rule -n api-tests -p "api.*test" -t test -c "Mock HTTP"
+    """
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+
+    pattern_list = [p.strip() for p in patterns.split(",") if p.strip()]
+    constraint_list = [c.strip() for c in constraints.split(",") if c.strip()]
+
+    rule = DelegationRule(
+        name=name,
+        task_patterns=pattern_list,
+        subagent_type=subagent_type,
+        priority=priority,
+        constraints=constraint_list,
+    )
+
+    try:
+        dm.add_rule(rule)
+        console.print(f"[green]Added delegation rule: {name}[/green]")
+        console.print(f"  Type: {subagent_type}")
+        console.print(f"  Patterns: {', '.join(pattern_list)}")
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+
+
+@delegation.command("remove-rule")
+@click.argument("rule_name")
+@click.pass_context
+def delegation_remove_rule(ctx, rule_name: str):
+    """Remove a delegation rule by name."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+
+    if dm.remove_rule(rule_name):
+        console.print(f"[green]Removed delegation rule: {rule_name}[/green]")
+    else:
+        console.print(f"[red]Rule not found: {rule_name}[/red]")
+
+
+@delegation.command("enable-rule")
+@click.argument("rule_name")
+@click.pass_context
+def delegation_enable_rule(ctx, rule_name: str):
+    """Enable a specific delegation rule."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+
+    if dm.enable_rule(rule_name):
+        console.print(f"[green]Enabled rule: {rule_name}[/green]")
+    else:
+        console.print(f"[red]Rule not found: {rule_name}[/red]")
+
+
+@delegation.command("disable-rule")
+@click.argument("rule_name")
+@click.pass_context
+def delegation_disable_rule(ctx, rule_name: str):
+    """Disable a specific delegation rule."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+
+    if dm.disable_rule(rule_name):
+        console.print(f"[yellow]Disabled rule: {rule_name}[/yellow]")
+    else:
+        console.print(f"[red]Rule not found: {rule_name}[/red]")
+
+
+@delegation.command("suggest")
+@click.argument("feature_id")
+@click.pass_context
+def delegation_suggest(ctx, feature_id: str):
+    """Show delegation suggestions for a feature's subtasks."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+    fm = FeatureManager(project_path)
+
+    feature = fm.get_feature(feature_id)
+    if not feature:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        return
+
+    if not feature.subtasks:
+        console.print(f"[yellow]Feature {feature_id} has no subtasks[/yellow]")
+        return
+
+    subtask_names = [st.name for st in feature.subtasks]
+    suggestions = dm.get_delegation_suggestions(subtask_names)
+
+    console.print()
+    console.print(f"[bold]Delegation Suggestions for {feature.id}: {feature.name}[/bold]")
+    console.print()
+
+    if not suggestions:
+        console.print("[dim]No subtasks match delegation rules[/dim]")
+        return
+
+    total_savings = 0
+    for subtask_name, rule in suggestions:
+        savings = dm.estimate_savings(subtask_name, rule)
+        total_savings += savings
+        console.print(f"  [green]DELEGATE[/green] {subtask_name}")
+        console.print(f"    Type: {rule.subagent_type}")
+        console.print(f"    Est. savings: ~{savings:,} tokens")
+
+    console.print()
+    console.print(f"[bold]Total estimated savings: ~{total_savings:,} tokens[/bold]")
+
+
+@delegation.command("auto")
+@click.option("--on/--off", default=None, help="Enable or disable auto-delegation")
+@click.pass_context
+def delegation_auto(ctx, on: bool):
+    """Configure auto-delegation hints in CLAUDE.md."""
+    project_path = ctx.obj["project_path"]
+    dm = DelegationManager(project_path)
+
+    if on is None:
+        # Show current status
+        config = dm.get_config()
+        status = "[green]enabled[/green]" if config.auto_delegate else "[dim]disabled[/dim]"
+        console.print(f"Auto-delegation: {status}")
+    else:
+        dm.set_auto_delegate(on)
+        status = "enabled" if on else "disabled"
+        console.print(f"[green]Auto-delegation {status}[/green]")
 
 
 # --- Run Commands ---

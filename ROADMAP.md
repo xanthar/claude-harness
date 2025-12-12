@@ -48,45 +48,90 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ---
 
-## Version 1.2.0 - Advanced Features
+## Version 1.3.0 - Subagent Delegation
+
+**Target:** Next minor release
+**Focus:** Context optimization through intelligent task delegation
+
+### High Priority
+
+#### 7. Subagent Delegation System
+- [x] `DelegationManager` class for managing delegation rules and tracking
+- [x] `DelegationRule` dataclass with regex pattern matching
+- [x] `DelegationConfig` dataclass with default rules
+- [x] `DelegationResult` tracking for delegation metrics
+
+#### 8. Delegation CLI Commands
+- [x] `claude-harness delegation status` - Show delegation status and metrics
+- [x] `claude-harness delegation enable/disable` - Toggle delegation globally
+- [x] `claude-harness delegation rules` - List all delegation rules
+- [x] `claude-harness delegation add-rule` - Add custom delegation rules
+- [x] `claude-harness delegation remove-rule` - Remove rules by name
+- [x] `claude-harness delegation enable-rule/disable-rule` - Toggle specific rules
+- [x] `claude-harness delegation suggest <ID>` - Get suggestions for a feature
+- [x] `claude-harness delegation auto --on/--off` - Configure auto-delegation hints
+
+#### 9. CLAUDE.md Delegation Integration
+- [x] Generate delegation section in CLAUDE.md template
+- [x] Include subagent type recommendations
+- [x] Token savings estimates per task type
+- [x] Constraint propagation to subagents
+
+### Benefits
+- **40-70% context savings** by delegating to specialized subagents
+- **Parallel execution** of independent tasks
+- **Summary-based returns** (3-5K tokens vs 25K+ full execution)
+- **Pattern-based matching** for automatic delegation suggestions
+
+### Default Delegation Rules
+| Rule | Patterns | Subagent Type | Est. Savings |
+|------|----------|---------------|--------------|
+| exploration | explore.*, find.*, search.*, investigate.* | explore | 22K tokens |
+| testing | test.*, write.*test, unit.*test, integration.*test | test | 15K tokens |
+| documentation | document.*, write.*doc, update.*readme | document | 9K tokens |
+| review | review.*, audit.*, check.*, validate.* | review | 17K tokens |
+
+---
+
+## Version 1.4.0 - Advanced Features
 
 **Target:** Future release
 **Focus:** Power user features and automation
 
 ### Medium Priority
 
-#### 7. Configuration Validation
+#### 10. Configuration Validation
 - [ ] `claude-harness validate` - Validate harness configuration
 - Check config.json schema
 - Verify features.json integrity
 - Check hook script permissions
 - Validate E2E setup
 
-#### 8. Export Functionality
+#### 11. Export Functionality
 - [ ] `claude-harness export features --format csv` - Export features to CSV
 - [ ] `claude-harness export progress --format json` - Export progress data
 - [ ] `claude-harness export report` - Generate full project report
 
-#### 9. Feature Dependencies
+#### 12. Feature Dependencies
 - [ ] Add `depends_on` field to features
 - Block starting feature if dependencies incomplete
 - Visual dependency tree: `claude-harness feature tree`
 
 ### Low Priority
 
-#### 10. Time Tracking
+#### 13. Time Tracking
 - [ ] Track time spent on each feature
 - Record start/stop timestamps
 - Session duration tracking
 - Time summary reports
 
-#### 11. Interactive Tutorial
+#### 14. Interactive Tutorial
 - [ ] `claude-harness tutorial` - Guided walkthrough
 - Step-by-step introduction to all commands
 - Example project setup
 - Best practices guidance
 
-#### 12. Template System
+#### 15. Template System
 - [ ] `claude-harness init --template flask` - Use predefined templates
 - Community template repository
 - Custom template creation
@@ -100,22 +145,22 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ### Planned Features
 
-#### 13. Team Collaboration
+#### 16. Team Collaboration
 - [ ] Shared progress tracking
 - [ ] Feature assignment
 - [ ] Conflict resolution for concurrent edits
 
-#### 14. CI/CD Integration
+#### 17. CI/CD Integration
 - [ ] GitHub Actions integration
 - [ ] GitLab CI templates
 - [ ] Jenkins pipeline support
 
-#### 15. Metrics Dashboard
+#### 18. Metrics Dashboard
 - [ ] Web-based dashboard
 - [ ] Feature velocity tracking
 - [ ] Session analytics
 
-#### 16. Plugin System
+#### 19. Plugin System
 - [ ] Custom hook plugins
 - [ ] Third-party integrations
 - [ ] Extension API
@@ -123,6 +168,13 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 ---
 
 ## Completed Features
+
+### v1.3.0 (2025-12-12)
+- [x] Subagent delegation system with rule-based matching
+- [x] Delegation CLI commands (status, enable, disable, rules, suggest, auto)
+- [x] CLAUDE.md delegation section generation
+- [x] Token savings estimation and metrics tracking
+- [x] Default rules for exploration, testing, documentation, review
 
 ### v1.1.0 (2025-12-12)
 - [x] Feature info command (`feature info <ID>`)
