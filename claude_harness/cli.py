@@ -1292,6 +1292,85 @@ def delegation_auto(ctx, on: bool):
         console.print(f"[green]Auto-delegation {status}[/green]")
 
 
+# --- Commands (Slash Commands) ---
+
+
+@main.group()
+@click.pass_context
+def commands(ctx):
+    """Manage Claude Code slash commands.
+
+    Generate and manage slash commands that integrate
+    claude-harness with Claude Code.
+    """
+    pass
+
+
+@commands.command("generate")
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Overwrite existing command files",
+)
+@click.pass_context
+def commands_generate(ctx, force: bool):
+    """Generate slash commands in .claude/commands/.
+
+    This creates slash command files that allow using
+    harness features directly inside Claude Code with
+    commands like /harness-status, /harness-feature-add, etc.
+    """
+    from .command_generator import write_commands_to_directory, generate_commands_readme, get_command_list
+
+    project_path = Path(ctx.obj["project_path"])
+    commands_dir = project_path / ".claude" / "commands"
+
+    if commands_dir.exists() and not force:
+        existing = list(commands_dir.glob("harness-*.md"))
+        if existing:
+            if not click.confirm(
+                f"Found {len(existing)} existing harness commands. Overwrite?",
+                default=False
+            ):
+                console.print("[yellow]Aborted.[/yellow]")
+                return
+
+    commands_dir.mkdir(parents=True, exist_ok=True)
+
+    created = write_commands_to_directory(commands_dir)
+    generate_commands_readme(commands_dir)
+
+    console.print(f"[green]Generated {len(created)} slash commands in .claude/commands/[/green]")
+    console.print()
+    console.print("[bold]Available commands:[/bold]")
+    for cmd in get_command_list()[:10]:
+        console.print(f"  {cmd['name']} - {cmd['description']}")
+    console.print(f"  ... and {len(get_command_list()) - 10} more")
+    console.print()
+    console.print("[dim]See .claude/commands/README.md for full list[/dim]")
+
+
+@commands.command("list")
+@click.pass_context
+def commands_list(ctx):
+    """List all available slash commands."""
+    from .command_generator import get_command_list
+    from rich.table import Table
+
+    cmds = get_command_list()
+
+    table = Table(title="Available Slash Commands", show_lines=False)
+    table.add_column("Command", style="cyan")
+    table.add_column("Description")
+
+    for cmd in cmds:
+        table.add_row(cmd["name"], cmd["description"])
+
+    console.print(table)
+    console.print(f"\n[dim]Total: {len(cmds)} commands[/dim]")
+
+
 # --- Run Commands ---
 
 

@@ -169,6 +169,13 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ## Completed Features
 
+### v1.4.0 (2025-12-12)
+- [x] 35 slash commands for Claude Code integration
+- [x] `/harness-init` - Interactive initialization inside Claude Code
+- [x] `/harness-*` commands for all harness features
+- [x] `claude-harness commands generate/list` CLI commands
+- [x] Commands auto-generated during init
+
 ### v1.3.0 (2025-12-12)
 - [x] Subagent delegation system with rule-based matching
 - [x] Delegation CLI commands (status, enable, disable, rules, suggest, auto)
