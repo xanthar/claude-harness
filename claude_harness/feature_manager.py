@@ -167,7 +167,10 @@ class FeatureManager:
         data = self._load()
         features = [Feature.from_dict(f) for f in data["features"]]
 
-        if status:
+        # BUG-002 fix: Include blocked features when filtering by blocked status
+        if status == "blocked":
+            features = [Feature.from_dict(f) for f in data["blocked"]]
+        elif status:
             features = [f for f in features if f.status == status]
 
         return sorted(features, key=lambda f: (f.priority, f.id))
@@ -200,6 +203,10 @@ class FeatureManager:
         notes: str = "",
     ) -> Feature:
         """Add a new feature."""
+        # BUG-003 fix: Validate feature name is not empty
+        if not name or not name.strip():
+            raise ValueError("Feature name cannot be empty")
+
         data = self._load()
 
         feature = Feature(
@@ -260,17 +267,43 @@ class FeatureManager:
         self._save()
         return Feature.from_dict(feature_dict)
 
-    def start_feature(self, feature_id: str) -> Optional[Feature]:
-        """Mark a feature as in_progress (and ensure only one is active)."""
+    def start_feature(self, feature_id: str, reset_others: bool = True) -> Optional[Feature]:
+        """Mark a feature as in_progress.
+
+        Args:
+            feature_id: The feature ID to start
+            reset_others: If True, set other in_progress features back to pending
+                         (single-feature workflow). Set to False for bulk operations.
+        """
         data = self._load()
 
-        # First, set any in_progress features back to pending
-        for f in data["features"]:
-            if f["status"] == "in_progress" and f["id"] != feature_id:
-                f["status"] = "pending"
+        if reset_others:
+            # First, set any in_progress features back to pending
+            for f in data["features"]:
+                if f["status"] == "in_progress" and f["id"] != feature_id:
+                    f["status"] = "pending"
 
         # Now start the requested feature
         return self.update_status(feature_id, "in_progress")
+
+    def start_features_bulk(self, feature_ids: List[str]) -> List[Feature]:
+        """Start multiple features at once (BUG-001 fix).
+
+        This method starts all specified features without resetting others,
+        allowing true bulk operations.
+
+        Args:
+            feature_ids: List of feature IDs to start
+
+        Returns:
+            List of successfully started features
+        """
+        started = []
+        for feature_id in feature_ids:
+            feature = self.start_feature(feature_id, reset_others=False)
+            if feature:
+                started.append(feature)
+        return started
 
     def complete_feature(self, feature_id: str) -> Optional[Feature]:
         """Mark a feature as completed."""

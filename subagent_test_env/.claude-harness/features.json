@@ -1,0 +1,129 @@
+{
+  "current_phase": "Phase 1",
+  "features": [
+    {
+      "id": "F-002",
+      "name": "Add calculation history persistence",
+      "status": "pending",
+      "priority": 2,
+      "tests_passing": false,
+      "e2e_validated": false,
+      "subtasks": [
+        {
+          "name": "Create file-based storage",
+          "done": false
+        },
+        {
+          "name": "Add save/load commands",
+          "done": false
+        },
+        {
+          "name": "Add export to JSON",
+          "done": false
+        }
+      ],
+      "notes": "Store history between sessions",
+      "created_at": "2025-12-12T19:48:10.607854+00:00",
+      "completed_at": null,
+      "blocked_reason": null
+    },
+    {
+      "id": "F-001",
+      "name": "Implement square root operation",
+      "status": "in_progress",
+      "priority": 0,
+      "tests_passing": false,
+      "e2e_validated": false,
+      "subtasks": [
+        {
+          "name": "Add sqrt function to operations.py",
+          "done": true
+        },
+        {
+          "name": "Write unit tests for sqrt",
+          "done": true
+        },
+        {
+          "name": "Add CLI command for sqrt",
+          "done": true
+        }
+      ],
+      "notes": "[2025-12-12 19:49] Need to handle negative numbers with complex results",
+      "created_at": "2025-12-12T19:48:05.766831+00:00",
+      "completed_at": "2025-12-12T19:49:30.549434+00:00",
+      "blocked_reason": null
+    },
+    {
+      "id": "F-005",
+      "name": "",
+      "status": "pending",
+      "priority": 0,
+      "tests_passing": false,
+      "e2e_validated": false,
+      "subtasks": [],
+      "notes": "",
+      "created_at": "2025-12-12T19:55:07.002413+00:00",
+      "completed_at": null,
+      "blocked_reason": null
+    }
+  ],
+  "completed": [
+    {
+      "id": "F-004",
+      "name": "Add expression parser",
+      "status": "completed",
+      "priority": 1,
+      "tests_passing": false,
+      "e2e_validated": false,
+      "subtasks": [
+        {
+          "name": "Parse infix expressions",
+          "done": true
+        },
+        {
+          "name": "Handle operator precedence",
+          "done": true
+        },
+        {
+          "name": "Support parentheses",
+          "done": true
+        }
+      ],
+      "notes": "",
+      "created_at": "2025-12-12T19:48:18.881132+00:00",
+      "completed_at": "2025-12-12T19:54:16.526865+00:00",
+      "blocked_reason": null
+    },
+    {
+      "id": "F-003",
+      "name": "Implement scientific calculator mode",
+      "status": "completed",
+      "priority": 3,
+      "tests_passing": false,
+      "e2e_validated": false,
+      "subtasks": [
+        {
+          "name": "Add trig functions",
+          "done": true
+        },
+        {
+          "name": "Add log functions",
+          "done": true
+        },
+        {
+          "name": "Add constants (PI, E)",
+          "done": true
+        },
+        {
+          "name": "Add mode switch",
+          "done": true
+        }
+      ],
+      "notes": "[2025-12-12 19:53] Using math module for trigonometric functions",
+      "created_at": "2025-12-12T19:48:14.866094+00:00",
+      "completed_at": "2025-12-12T19:54:33.892564+00:00",
+      "blocked_reason": null
+    }
+  ],
+  "blocked": []
+}

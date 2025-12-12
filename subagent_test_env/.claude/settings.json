@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "[ -f .claude-harness/hooks/check-git-safety.sh ] && .claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\""
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" $(wc -c < \"$TOOL_INPUT\" 2>/dev/null || echo 1000)"
+      },
+      {
+        "matcher": "Write",
+        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" write"
+      },
+      {
+        "matcher": "Edit",
+        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" edit"
+      },
+      {
+        "matcher": "Bash",
+        "command": "[ -f .claude-harness/hooks/log-activity.sh ] && .claude-harness/hooks/log-activity.sh \"Bash\" \"$TOOL_INPUT\""
+      }
+    ],
+    "Stop": [
+      {
+        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; echo '---'; claude-harness progress show)"
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(claude-harness:*)"
+    ]
+  }
+}

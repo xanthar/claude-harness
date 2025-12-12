@@ -434,6 +434,98 @@ class TestFeatureCommands:
         assert "Blocked" in result.output  # F-001 should be blocked
         assert "not found" in result.output.lower()  # F-999 not found
 
+    # === BUG FIX TESTS ===
+
+    def test_bug001_bulk_start_all_features_started(self, runner, initialized_project):
+        """BUG-001: Verify bulk start actually starts ALL features, not just last one."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+        runner.invoke(main, ["feature", "add", "Feature 3"])
+
+        # Start multiple features
+        runner.invoke(main, ["feature", "start", "F-001", "F-002", "F-003", "--yes"])
+
+        # Verify ALL features are actually in_progress
+        result1 = runner.invoke(main, ["feature", "info", "F-001"])
+        result2 = runner.invoke(main, ["feature", "info", "F-002"])
+        result3 = runner.invoke(main, ["feature", "info", "F-003"])
+
+        assert "in_progress" in result1.output
+        assert "in_progress" in result2.output
+        assert "in_progress" in result3.output
+
+    def test_bug002_blocked_status_filter(self, runner, initialized_project):
+        """BUG-002: Verify --status blocked filter returns blocked features."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+        runner.invoke(main, ["feature", "add", "Feature 3"])
+
+        # Block two features
+        runner.invoke(main, ["feature", "block", "F-001", "-r", "Waiting for API"])
+        runner.invoke(main, ["feature", "block", "F-002", "-r", "Dependency issue"])
+
+        # Now filter by blocked status
+        result = runner.invoke(main, ["feature", "list", "--status", "blocked"])
+        assert result.exit_code == 0
+        assert "Feature 1" in result.output
+        assert "Feature 2" in result.output
+        assert "Feature 3" not in result.output
+        assert "2 feature(s) found" in result.output
+
+    def test_bug003_empty_feature_name_rejected(self, runner, initialized_project):
+        """BUG-003: Verify empty feature names are rejected."""
+        import os
+        os.chdir(initialized_project)
+
+        # Try to add feature with empty name
+        result = runner.invoke(main, ["feature", "add", ""])
+        assert "Error" in result.output or "cannot be empty" in result.output.lower()
+
+        # Also test whitespace-only name
+        result2 = runner.invoke(main, ["feature", "add", "   "])
+        assert "Error" in result2.output or "cannot be empty" in result2.output.lower()
+
+    def test_bug004_restart_completed_warning(self, runner, initialized_project):
+        """BUG-004: Verify warning when restarting a completed feature."""
+        import os
+        os.chdir(initialized_project)
+
+        # Create, start, and complete a feature
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        runner.invoke(main, ["feature", "start", "F-001"])
+        runner.invoke(main, ["feature", "tests", "F-001", "--passing"])
+        runner.invoke(main, ["feature", "complete", "F-001"])
+
+        # Try to restart it - should warn (answer 'n' to abort)
+        result = runner.invoke(main, ["feature", "start", "F-001"], input="n\n")
+        assert "Warning" in result.output
+        assert "completed" in result.output.lower()
+        assert "Aborted" in result.output
+
+    def test_bug004_restart_completed_with_yes(self, runner, initialized_project):
+        """BUG-004: Verify --yes skips warning for completed features."""
+        import os
+        os.chdir(initialized_project)
+
+        # Create, start, and complete a feature
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        runner.invoke(main, ["feature", "start", "F-001"])
+        runner.invoke(main, ["feature", "tests", "F-001", "--passing"])
+        runner.invoke(main, ["feature", "complete", "F-001"])
+
+        # Restart with --yes to skip warning
+        result = runner.invoke(main, ["feature", "start", "F-001", "--yes"])
+        assert result.exit_code == 0
+        assert "Started" in result.output
+
+        # Verify it's now in_progress
+        info_result = runner.invoke(main, ["feature", "info", "F-001"])
+        assert "in_progress" in info_result.output
+
 
 class TestProgressCommands:
     """Tests for progress commands."""

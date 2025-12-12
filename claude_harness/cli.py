@@ -257,22 +257,30 @@ def feature_info(ctx, feature_id: str):
 @feature.command("add")
 @click.argument("name")
 @click.option("--priority", "-p", default=0, help="Priority (lower = higher priority)")
-@click.option("--subtask", "-s", multiple=True, help="Add subtasks")
+@click.option("--subtask", "-s", multiple=True, help="Add subtask (can be used multiple times)")
 @click.option("--notes", "-n", default="", help="Notes")
 @click.pass_context
 def feature_add(ctx, name: str, priority: int, subtask: tuple, notes: str):
-    """Add a new feature."""
+    """Add a new feature.
+
+    Examples:
+        claude-harness feature add "User login"
+        claude-harness feature add "Auth system" -p 1 -s "Design API" -s "Implement"
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
 
-    feature = fm.add_feature(
-        name=name,
-        priority=priority,
-        subtasks=list(subtask),
-        notes=notes,
-    )
-
-    console.print(f"[green]Added feature: {feature.id} - {feature.name}[/green]")
+    # BUG-003 fix: Handle validation error for empty names
+    try:
+        feature = fm.add_feature(
+            name=name,
+            priority=priority,
+            subtasks=list(subtask),
+            notes=notes,
+        )
+        console.print(f"[green]Added feature: {feature.id} - {feature.name}[/green]")
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
 
 
 @feature.command("start")
@@ -293,6 +301,22 @@ def feature_start(ctx, feature_ids: tuple, yes: bool):
     fm = FeatureManager(project_path)
     pt = ProgressTracker(project_path)
 
+    # BUG-004 fix: Check for completed features and warn
+    completed_features = []
+    for feature_id in feature_ids:
+        feature = fm.get_feature(feature_id)
+        if feature and feature.status == "completed":
+            completed_features.append(feature)
+
+    if completed_features and not yes:
+        console.print("[yellow]Warning: The following features are already completed:[/yellow]")
+        for f in completed_features:
+            console.print(f"  {f.id}: {f.name}")
+        console.print("[dim]Restarting will reset their test status.[/dim]")
+        if not click.confirm("Continue anyway?"):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
     # Warn about multiple features (harness philosophy: one at a time)
     if len(feature_ids) > 1 and not yes:
         console.print(f"[yellow]Warning: Starting {len(feature_ids)} features at once.[/yellow]")
@@ -304,13 +328,23 @@ def feature_start(ctx, feature_ids: tuple, yes: bool):
     started = []
     not_found = []
 
-    for feature_id in feature_ids:
-        feature = fm.start_feature(feature_id)
-        if feature:
-            started.append(feature)
-            pt.add_in_progress(f"{feature.id}: {feature.name}")
-        else:
-            not_found.append(feature_id)
+    # BUG-001 fix: Use bulk method for multiple features
+    if len(feature_ids) > 1:
+        started = fm.start_features_bulk(list(feature_ids))
+        started_ids = {f.id for f in started}
+        not_found = [fid for fid in feature_ids if fid not in started_ids]
+    else:
+        # Single feature - use standard method (resets others)
+        for feature_id in feature_ids:
+            feature = fm.start_feature(feature_id)
+            if feature:
+                started.append(feature)
+            else:
+                not_found.append(feature_id)
+
+    # Update progress tracking
+    for feature in started:
+        pt.add_in_progress(f"{feature.id}: {feature.name}")
 
     # Report results
     for feature in started:
