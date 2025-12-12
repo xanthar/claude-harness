@@ -187,6 +187,31 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "start", "F-999"])
         assert "not found" in result.output.lower()
 
+    def test_feature_info(self, runner, initialized_project):
+        """Test feature info command."""
+        import os
+        os.chdir(initialized_project)
+        # Add a feature with subtasks and notes
+        runner.invoke(main, [
+            "feature", "add", "Test Feature",
+            "-s", "Subtask 1", "-s", "Subtask 2",
+            "-n", "Some notes here"
+        ])
+        result = runner.invoke(main, ["feature", "info", "F-001"])
+        assert result.exit_code == 0
+        assert "F-001" in result.output
+        assert "Test Feature" in result.output
+        assert "Subtask 1" in result.output
+        assert "Subtask 2" in result.output
+        assert "Some notes here" in result.output
+
+    def test_feature_info_not_found(self, runner, initialized_project):
+        """Test feature info with non-existent feature."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["feature", "info", "F-999"])
+        assert "not found" in result.output.lower()
+
     def test_feature_block(self, runner, initialized_project):
         """Test blocking a feature."""
         import os
@@ -226,6 +251,79 @@ class TestFeatureCommands:
         import os
         os.chdir(initialized_project)
         result = runner.invoke(main, ["feature", "unblock", "F-999"])
+        assert "not found" in result.output.lower()
+
+    def test_feature_done_by_index(self, runner, initialized_project):
+        """Test marking subtask done by index."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Task 1", "-s", "Task 2"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "0"])
+        assert result.exit_code == 0
+        assert "Completed" in result.output or "Task 1" in result.output
+
+    def test_feature_done_by_name(self, runner, initialized_project):
+        """Test marking subtask done by exact name."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Login form", "-s", "Logout"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "Login form"])
+        assert result.exit_code == 0
+        assert "Login form" in result.output
+
+    def test_feature_done_by_partial_name(self, runner, initialized_project):
+        """Test marking subtask done by partial name match."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Login form", "-s", "Logout"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "login"])
+        assert result.exit_code == 0
+        assert "Login form" in result.output
+
+    def test_feature_done_multiple_matches(self, runner, initialized_project):
+        """Test done command with ambiguous name match."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Login API", "-s", "Login UI"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "login"])
+        assert result.exit_code == 0
+        assert "Multiple" in result.output
+
+    def test_feature_done_no_match(self, runner, initialized_project):
+        """Test done command with no matching subtask."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Task 1"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "nonexistent"])
+        assert result.exit_code == 0
+        assert "No subtask found" in result.output
+
+    def test_feature_note(self, runner, initialized_project):
+        """Test adding a note to a feature."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        result = runner.invoke(main, ["feature", "note", "F-001", "This is a test note"])
+        assert result.exit_code == 0
+        assert "Added note" in result.output
+
+    def test_feature_note_shows_in_info(self, runner, initialized_project):
+        """Test that notes appear in feature info."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        runner.invoke(main, ["feature", "note", "F-001", "First note"])
+        runner.invoke(main, ["feature", "note", "F-001", "Second note"])
+        result = runner.invoke(main, ["feature", "info", "F-001"])
+        assert result.exit_code == 0
+        assert "First note" in result.output
+        assert "Second note" in result.output
+
+    def test_feature_note_not_found(self, runner, initialized_project):
+        """Test adding note to non-existent feature."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["feature", "note", "F-999", "Some note"])
         assert "not found" in result.output.lower()
 
 
@@ -312,6 +410,62 @@ class TestProgressCommands:
         result = runner.invoke(main, ["progress", "file", "src/main.py"])
         assert result.exit_code == 0
         assert "file" in result.output.lower()
+
+    def test_progress_history_empty(self, runner, initialized_project):
+        """Test history command with no archived sessions."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["progress", "history"])
+        assert result.exit_code == 0
+        assert "No session history" in result.output
+
+    def test_progress_history_with_sessions(self, runner, initialized_project):
+        """Test history command with archived sessions."""
+        import os
+        os.chdir(initialized_project)
+
+        # Create session history directory with a session file
+        history_dir = initialized_project / ".claude-harness" / "session-history"
+        history_dir.mkdir()
+
+        session_content = """## Last Session: 2025-12-12 10:00 UTC
+
+### Completed This Session
+- [x] First completed task
+- [x] Second completed task
+
+### Current Work In Progress
+- [ ] Some work
+
+### Blockers
+- None
+"""
+        (history_dir / "session_2025-12-12_1000_UTC.md").write_text(session_content)
+
+        result = runner.invoke(main, ["progress", "history"])
+        assert result.exit_code == 0
+        assert "Session History" in result.output
+        assert "2025-12-12" in result.output
+
+    def test_progress_history_show_session(self, runner, initialized_project):
+        """Test showing a specific historical session."""
+        import os
+        os.chdir(initialized_project)
+
+        # Create session history
+        history_dir = initialized_project / ".claude-harness" / "session-history"
+        history_dir.mkdir()
+
+        session_content = """## Last Session: 2025-12-12 10:00 UTC
+
+### Completed This Session
+- [x] Test task one
+"""
+        (history_dir / "session_2025-12-12_1000_UTC.md").write_text(session_content)
+
+        result = runner.invoke(main, ["progress", "history", "--show", "1"])
+        assert result.exit_code == 0
+        assert "Test task one" in result.output
 
 
 class TestContextCommands:

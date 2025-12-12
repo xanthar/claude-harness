@@ -347,6 +347,28 @@ class FeatureManager:
 
         return None
 
+    def add_note(self, feature_id: str, note: str) -> Optional[Feature]:
+        """Add a timestamped note to a feature."""
+        data = self._load()
+
+        # Search in all lists
+        for lst_name in ["features", "completed", "blocked"]:
+            for f in data[lst_name]:
+                if f["id"] == feature_id:
+                    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+                    note_entry = f"[{timestamp}] {note}"
+
+                    # Append to existing notes
+                    if f.get("notes"):
+                        f["notes"] = f["notes"] + "\n" + note_entry
+                    else:
+                        f["notes"] = note_entry
+
+                    self._save()
+                    return Feature.from_dict(f)
+
+        return None
+
     def get_current_phase(self) -> str:
         """Get current phase name."""
         data = self._load()

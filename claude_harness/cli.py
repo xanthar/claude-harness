@@ -159,6 +159,67 @@ def feature_list(ctx, show_all: bool, status: str):
         fm.show_table(include_completed=show_all)
 
 
+@feature.command("info")
+@click.argument("feature_id")
+@click.pass_context
+def feature_info(ctx, feature_id: str):
+    """Show detailed information about a feature."""
+    project_path = ctx.obj["project_path"]
+    fm = FeatureManager(project_path)
+
+    feature = fm.get_feature(feature_id)
+
+    if not feature:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        return
+
+    # Header
+    status_colors = {
+        "pending": "blue",
+        "in_progress": "yellow",
+        "completed": "green",
+        "blocked": "red",
+    }
+    status_color = status_colors.get(feature.status, "white")
+
+    console.print()
+    console.print(f"[bold]{feature.id}[/bold]: {feature.name}")
+    console.print(f"  Status: [{status_color}]{feature.status}[/{status_color}]")
+    console.print(f"  Priority: {feature.priority}")
+
+    # Dates
+    if feature.created_at:
+        console.print(f"  Created: {feature.created_at[:16]}")
+    if feature.completed_at:
+        console.print(f"  Completed: {feature.completed_at[:16]}")
+
+    # Blocked reason
+    if feature.blocked_reason:
+        console.print(f"  [red]Blocked: {feature.blocked_reason}[/red]")
+
+    # Tests and E2E status
+    tests_mark = "[green]Yes[/green]" if feature.tests_passing else "[red]No[/red]"
+    e2e_mark = "[green]Yes[/green]" if feature.e2e_validated else "[red]No[/red]"
+    console.print(f"  Tests Passing: {tests_mark}")
+    console.print(f"  E2E Validated: {e2e_mark}")
+
+    # Subtasks
+    if feature.subtasks:
+        console.print()
+        console.print(f"  [bold]Subtasks ({feature.subtask_progress}):[/bold]")
+        for i, subtask in enumerate(feature.subtasks):
+            mark = "[green]x[/green]" if subtask.done else "[ ]"
+            console.print(f"    {i}. {mark} {subtask.name}")
+
+    # Notes
+    if feature.notes:
+        console.print()
+        console.print(f"  [bold]Notes:[/bold]")
+        console.print(f"    {feature.notes}")
+
+    console.print()
+
+
 @feature.command("add")
 @click.argument("name")
 @click.option("--priority", "-p", default=0, help="Priority (lower = higher priority)")
@@ -288,23 +349,75 @@ def feature_subtask(ctx, feature_id: str, subtask_name: str):
 
 @feature.command("done")
 @click.argument("feature_id")
-@click.argument("subtask_index", type=int)
+@click.argument("subtask_identifier")
 @click.pass_context
-def feature_done(ctx, feature_id: str, subtask_index: int):
-    """Mark a subtask as done (0-indexed)."""
+def feature_done(ctx, feature_id: str, subtask_identifier: str):
+    """Mark a subtask as done by index (0-indexed) or name.
+
+    Examples:
+        claude-harness feature done F-001 0
+        claude-harness feature done F-001 "Login form"
+        claude-harness feature done F-001 login  # Fuzzy match
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
 
+    # First get the feature to check subtasks
+    feature = fm.get_feature(feature_id)
+    if not feature:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        return
+
+    if not feature.subtasks:
+        console.print(f"[yellow]Feature {feature_id} has no subtasks[/yellow]")
+        return
+
+    # Determine if identifier is an index or name
+    subtask_index = None
+
+    # Try to parse as integer first
+    try:
+        subtask_index = int(subtask_identifier)
+        if subtask_index < 0 or subtask_index >= len(feature.subtasks):
+            console.print(f"[red]Subtask index {subtask_index} out of range (0-{len(feature.subtasks)-1})[/red]")
+            return
+    except ValueError:
+        # Not an integer, search by name
+        search_term = subtask_identifier.lower()
+        matches = []
+
+        for i, subtask in enumerate(feature.subtasks):
+            if search_term == subtask.name.lower():
+                # Exact match
+                subtask_index = i
+                break
+            elif search_term in subtask.name.lower():
+                # Partial match
+                matches.append((i, subtask.name))
+
+        if subtask_index is None:
+            if len(matches) == 1:
+                subtask_index = matches[0][0]
+            elif len(matches) > 1:
+                console.print(f"[yellow]Multiple subtasks match '{subtask_identifier}':[/yellow]")
+                for idx, name in matches:
+                    console.print(f"  {idx}. {name}")
+                console.print("[dim]Use the index number to specify which one[/dim]")
+                return
+            else:
+                console.print(f"[red]No subtask found matching '{subtask_identifier}'[/red]")
+                console.print("[dim]Available subtasks:[/dim]")
+                for i, subtask in enumerate(feature.subtasks):
+                    mark = "[green]x[/green]" if subtask.done else "[ ]"
+                    console.print(f"  {i}. {mark} {subtask.name}")
+                return
+
+    # Complete the subtask
     feature = fm.complete_subtask(feature_id, subtask_index)
 
     if feature:
-        if subtask_index < len(feature.subtasks):
-            subtask = feature.subtasks[subtask_index]
-            console.print(f"[green]Completed subtask: {subtask.name}[/green]")
-        else:
-            console.print(f"[red]Subtask index out of range[/red]")
-    else:
-        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        subtask = feature.subtasks[subtask_index]
+        console.print(f"[green]Completed subtask: {subtask.name}[/green]")
 
 
 @feature.command("tests")
@@ -339,6 +452,29 @@ def feature_e2e(ctx, feature_id: str, validated: bool):
     if feature:
         status = "validated" if validated else "not validated"
         console.print(f"[green]Marked {feature.id} E2E as {status}[/green]")
+    else:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+
+
+@feature.command("note")
+@click.argument("feature_id")
+@click.argument("note_text")
+@click.pass_context
+def feature_note(ctx, feature_id: str, note_text: str):
+    """Add a timestamped note to a feature.
+
+    Examples:
+        claude-harness feature note F-001 "Waiting for API specs"
+        claude-harness feature note F-001 "Discussed with team, using approach B"
+    """
+    project_path = ctx.obj["project_path"]
+    fm = FeatureManager(project_path)
+
+    feature = fm.add_note(feature_id, note_text)
+
+    if feature:
+        console.print(f"[green]Added note to {feature.id}[/green]")
+        console.print(f"[dim]{note_text}[/dim]")
     else:
         console.print(f"[red]Feature not found: {feature_id}[/red]")
 
@@ -436,6 +572,27 @@ def progress_new_session(ctx):
 
     pt.start_new_session()
     console.print("[green]Started new session. Previous session archived.[/green]")
+
+
+@progress.command("history")
+@click.option("--limit", "-l", default=10, help="Number of sessions to show")
+@click.option("--show", "-s", type=int, help="Show details of session at index (1-based)")
+@click.pass_context
+def progress_history(ctx, limit: int, show: int):
+    """View session history.
+
+    Examples:
+        claude-harness progress history
+        claude-harness progress history --limit 5
+        claude-harness progress history --show 1  # Show most recent
+    """
+    project_path = ctx.obj["project_path"]
+    pt = ProgressTracker(project_path)
+
+    if show:
+        pt.show_session(show)
+    else:
+        pt.show_history(limit)
 
 
 @progress.command("update")

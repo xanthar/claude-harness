@@ -446,6 +446,99 @@ class ProgressTracker:
         content = self._read_file()
         console.print(Markdown(content))
 
+    def list_history(self, limit: int = 10) -> List[dict]:
+        """List archived session files.
+
+        Returns:
+            List of dicts with 'filename', 'date', 'path' keys, sorted newest first.
+        """
+        if not self.history_dir.exists():
+            return []
+
+        sessions = []
+        for filepath in self.history_dir.glob("session_*.md"):
+            # Extract date from filename: session_2025-12-12_1930_UTC.md
+            filename = filepath.stem
+            date_part = filename.replace("session_", "").replace("_", " ")
+            sessions.append({
+                "filename": filepath.name,
+                "date": date_part,
+                "path": filepath,
+            })
+
+        # Sort by filename (which contains date) descending
+        sessions.sort(key=lambda x: x["filename"], reverse=True)
+
+        return sessions[:limit]
+
+    def show_history(self, limit: int = 10):
+        """Display session history summary."""
+        sessions = self.list_history(limit)
+
+        if not sessions:
+            console.print("[yellow]No session history found[/yellow]")
+            console.print("[dim]Sessions are archived when you start a new session[/dim]")
+            return
+
+        console.print()
+        console.print(
+            Panel.fit(
+                f"[bold blue]Session History[/bold blue]\n"
+                f"Showing {len(sessions)} most recent sessions",
+                border_style="blue",
+            )
+        )
+
+        for i, session in enumerate(sessions):
+            # Try to read and parse the session file for summary
+            try:
+                content = session["path"].read_text()
+                # Count completed items
+                completed_count = content.count("- [x]")
+                # Get first line of completed section
+                completed_preview = ""
+                if "### Completed This Session" in content:
+                    section_start = content.find("### Completed This Session")
+                    section = content[section_start:section_start + 500]
+                    lines = section.split("\n")[1:4]  # Get first 3 items
+                    items = [l.strip() for l in lines if l.strip().startswith("- [")]
+                    if items:
+                        completed_preview = items[0].replace("- [x] ", "")[:50]
+
+                console.print(f"\n[bold]{i + 1}. {session['date']}[/bold]")
+                console.print(f"   Completed: {completed_count} items")
+                if completed_preview:
+                    console.print(f"   [dim]First: {completed_preview}...[/dim]")
+            except Exception:
+                console.print(f"\n[bold]{i + 1}. {session['date']}[/bold]")
+                console.print(f"   [dim]Unable to read session details[/dim]")
+
+        console.print()
+        console.print(f"[dim]History directory: {self.history_dir}[/dim]")
+
+    def show_session(self, index: int):
+        """Show details of a specific historical session by index (1-based)."""
+        sessions = self.list_history(100)  # Get more to allow higher indices
+
+        if not sessions:
+            console.print("[yellow]No session history found[/yellow]")
+            return
+
+        if index < 1 or index > len(sessions):
+            console.print(f"[red]Invalid session index. Valid range: 1-{len(sessions)}[/red]")
+            return
+
+        session = sessions[index - 1]
+
+        try:
+            content = session["path"].read_text()
+            console.print()
+            console.print(f"[bold blue]Session: {session['date']}[/bold blue]")
+            console.print()
+            console.print(Markdown(content))
+        except Exception as e:
+            console.print(f"[red]Error reading session: {e}[/red]")
+
 
 def get_progress_tracker(project_path: str = ".") -> ProgressTracker:
     """Get a progress tracker instance."""
