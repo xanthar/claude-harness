@@ -139,6 +139,61 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "list"])
         assert result.exit_code == 0
 
+    def test_feature_list_priority_filter(self, runner, initialized_project):
+        """Test feature list with priority filter."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Low Priority", "-p", "5"])
+        runner.invoke(main, ["feature", "add", "High Priority", "-p", "1"])
+        runner.invoke(main, ["feature", "add", "Another High", "-p", "1"])
+
+        result = runner.invoke(main, ["feature", "list", "--priority", "1"])
+        assert result.exit_code == 0
+        assert "High Priority" in result.output
+        assert "Another High" in result.output
+        assert "Low Priority" not in result.output
+        assert "2 feature(s) found" in result.output
+
+    def test_feature_list_search_filter(self, runner, initialized_project):
+        """Test feature list with search filter."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "User Authentication"])
+        runner.invoke(main, ["feature", "add", "Payment Processing"])
+        runner.invoke(main, ["feature", "add", "Auth Token Refresh"])
+
+        result = runner.invoke(main, ["feature", "list", "--search", "auth"])
+        assert result.exit_code == 0
+        assert "User Authentication" in result.output
+        assert "Auth Token Refresh" in result.output
+        assert "Payment Processing" not in result.output
+        assert "2 feature(s) found" in result.output
+
+    def test_feature_list_combined_filters(self, runner, initialized_project):
+        """Test feature list with multiple filters combined."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Auth Login", "-p", "1"])
+        runner.invoke(main, ["feature", "add", "Auth Logout", "-p", "2"])
+        runner.invoke(main, ["feature", "add", "Payment", "-p", "1"])
+
+        result = runner.invoke(main, ["feature", "list", "-p", "1", "-q", "auth"])
+        assert result.exit_code == 0
+        assert "Auth Login" in result.output
+        assert "Auth Logout" not in result.output
+        assert "Payment" not in result.output
+        assert "1 feature(s) found" in result.output
+
+    def test_feature_list_no_match(self, runner, initialized_project):
+        """Test feature list when no features match filters."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Some Feature"])
+
+        result = runner.invoke(main, ["feature", "list", "--search", "nonexistent"])
+        assert result.exit_code == 0
+        assert "No features match" in result.output
+
     def test_feature_add(self, runner, initialized_project):
         """Test adding a feature."""
         import os

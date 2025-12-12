@@ -145,16 +145,50 @@ def feature(ctx):
 @feature.command("list")
 @click.option("--all", "-a", "show_all", is_flag=True, help="Include completed features")
 @click.option("--status", "-s", type=click.Choice(["pending", "in_progress", "blocked"]))
+@click.option("--priority", "-p", type=int, help="Filter by priority level")
+@click.option("--search", "-q", help="Search in feature names (case-insensitive)")
 @click.pass_context
-def feature_list(ctx, show_all: bool, status: str):
-    """List features."""
+def feature_list(ctx, show_all: bool, status: str, priority: int, search: str):
+    """List features with optional filters.
+
+    Examples:
+        claude-harness feature list
+        claude-harness feature list --status pending
+        claude-harness feature list --priority 1
+        claude-harness feature list --search auth
+        claude-harness feature list -s pending -p 1 -q login
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
 
-    if status:
+    # If any filter is applied, use filtered list view
+    if status or priority is not None or search:
         features = fm.list_features(status=status)
+
+        # Apply priority filter
+        if priority is not None:
+            features = [f for f in features if f.priority == priority]
+
+        # Apply search filter
+        if search:
+            search_lower = search.lower()
+            features = [f for f in features if search_lower in f.name.lower()]
+
+        if not features:
+            console.print("[yellow]No features match the filters[/yellow]")
+            return
+
+        console.print()
         for f in features:
-            console.print(f"  {f.id}: {f.name} [{f.status}]")
+            status_colors = {
+                "pending": "blue",
+                "in_progress": "yellow",
+                "completed": "green",
+                "blocked": "red",
+            }
+            color = status_colors.get(f.status, "white")
+            console.print(f"  {f.id}: {f.name} [{color}]{f.status}[/{color}] (P{f.priority})")
+        console.print(f"\n[dim]{len(features)} feature(s) found[/dim]")
     else:
         fm.show_table(include_completed=show_all)
 
