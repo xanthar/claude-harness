@@ -456,6 +456,29 @@ def feature_e2e(ctx, feature_id: str, validated: bool):
         console.print(f"[red]Feature not found: {feature_id}[/red]")
 
 
+@feature.command("note")
+@click.argument("feature_id")
+@click.argument("note_text")
+@click.pass_context
+def feature_note(ctx, feature_id: str, note_text: str):
+    """Add a timestamped note to a feature.
+
+    Examples:
+        claude-harness feature note F-001 "Waiting for API specs"
+        claude-harness feature note F-001 "Discussed with team, using approach B"
+    """
+    project_path = ctx.obj["project_path"]
+    fm = FeatureManager(project_path)
+
+    feature = fm.add_note(feature_id, note_text)
+
+    if feature:
+        console.print(f"[green]Added note to {feature.id}[/green]")
+        console.print(f"[dim]{note_text}[/dim]")
+    else:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+
+
 @feature.command("phase")
 @click.argument("phase_name")
 @click.pass_context

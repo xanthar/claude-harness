@@ -298,6 +298,34 @@ class TestFeatureCommands:
         assert result.exit_code == 0
         assert "No subtask found" in result.output
 
+    def test_feature_note(self, runner, initialized_project):
+        """Test adding a note to a feature."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        result = runner.invoke(main, ["feature", "note", "F-001", "This is a test note"])
+        assert result.exit_code == 0
+        assert "Added note" in result.output
+
+    def test_feature_note_shows_in_info(self, runner, initialized_project):
+        """Test that notes appear in feature info."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test Feature"])
+        runner.invoke(main, ["feature", "note", "F-001", "First note"])
+        runner.invoke(main, ["feature", "note", "F-001", "Second note"])
+        result = runner.invoke(main, ["feature", "info", "F-001"])
+        assert result.exit_code == 0
+        assert "First note" in result.output
+        assert "Second note" in result.output
+
+    def test_feature_note_not_found(self, runner, initialized_project):
+        """Test adding note to non-existent feature."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["feature", "note", "F-999", "Some note"])
+        assert "not found" in result.output.lower()
+
 
 class TestProgressCommands:
     """Tests for progress commands."""
