@@ -349,23 +349,75 @@ def feature_subtask(ctx, feature_id: str, subtask_name: str):
 
 @feature.command("done")
 @click.argument("feature_id")
-@click.argument("subtask_index", type=int)
+@click.argument("subtask_identifier")
 @click.pass_context
-def feature_done(ctx, feature_id: str, subtask_index: int):
-    """Mark a subtask as done (0-indexed)."""
+def feature_done(ctx, feature_id: str, subtask_identifier: str):
+    """Mark a subtask as done by index (0-indexed) or name.
+
+    Examples:
+        claude-harness feature done F-001 0
+        claude-harness feature done F-001 "Login form"
+        claude-harness feature done F-001 login  # Fuzzy match
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
 
+    # First get the feature to check subtasks
+    feature = fm.get_feature(feature_id)
+    if not feature:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        return
+
+    if not feature.subtasks:
+        console.print(f"[yellow]Feature {feature_id} has no subtasks[/yellow]")
+        return
+
+    # Determine if identifier is an index or name
+    subtask_index = None
+
+    # Try to parse as integer first
+    try:
+        subtask_index = int(subtask_identifier)
+        if subtask_index < 0 or subtask_index >= len(feature.subtasks):
+            console.print(f"[red]Subtask index {subtask_index} out of range (0-{len(feature.subtasks)-1})[/red]")
+            return
+    except ValueError:
+        # Not an integer, search by name
+        search_term = subtask_identifier.lower()
+        matches = []
+
+        for i, subtask in enumerate(feature.subtasks):
+            if search_term == subtask.name.lower():
+                # Exact match
+                subtask_index = i
+                break
+            elif search_term in subtask.name.lower():
+                # Partial match
+                matches.append((i, subtask.name))
+
+        if subtask_index is None:
+            if len(matches) == 1:
+                subtask_index = matches[0][0]
+            elif len(matches) > 1:
+                console.print(f"[yellow]Multiple subtasks match '{subtask_identifier}':[/yellow]")
+                for idx, name in matches:
+                    console.print(f"  {idx}. {name}")
+                console.print("[dim]Use the index number to specify which one[/dim]")
+                return
+            else:
+                console.print(f"[red]No subtask found matching '{subtask_identifier}'[/red]")
+                console.print("[dim]Available subtasks:[/dim]")
+                for i, subtask in enumerate(feature.subtasks):
+                    mark = "[green]x[/green]" if subtask.done else "[ ]"
+                    console.print(f"  {i}. {mark} {subtask.name}")
+                return
+
+    # Complete the subtask
     feature = fm.complete_subtask(feature_id, subtask_index)
 
     if feature:
-        if subtask_index < len(feature.subtasks):
-            subtask = feature.subtasks[subtask_index]
-            console.print(f"[green]Completed subtask: {subtask.name}[/green]")
-        else:
-            console.print(f"[red]Subtask index out of range[/red]")
-    else:
-        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        subtask = feature.subtasks[subtask_index]
+        console.print(f"[green]Completed subtask: {subtask.name}[/green]")
 
 
 @feature.command("tests")

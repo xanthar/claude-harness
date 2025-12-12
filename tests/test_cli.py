@@ -253,6 +253,51 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "unblock", "F-999"])
         assert "not found" in result.output.lower()
 
+    def test_feature_done_by_index(self, runner, initialized_project):
+        """Test marking subtask done by index."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Task 1", "-s", "Task 2"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "0"])
+        assert result.exit_code == 0
+        assert "Completed" in result.output or "Task 1" in result.output
+
+    def test_feature_done_by_name(self, runner, initialized_project):
+        """Test marking subtask done by exact name."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Login form", "-s", "Logout"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "Login form"])
+        assert result.exit_code == 0
+        assert "Login form" in result.output
+
+    def test_feature_done_by_partial_name(self, runner, initialized_project):
+        """Test marking subtask done by partial name match."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Login form", "-s", "Logout"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "login"])
+        assert result.exit_code == 0
+        assert "Login form" in result.output
+
+    def test_feature_done_multiple_matches(self, runner, initialized_project):
+        """Test done command with ambiguous name match."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Login API", "-s", "Login UI"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "login"])
+        assert result.exit_code == 0
+        assert "Multiple" in result.output
+
+    def test_feature_done_no_match(self, runner, initialized_project):
+        """Test done command with no matching subtask."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Test", "-s", "Task 1"])
+        result = runner.invoke(main, ["feature", "done", "F-001", "nonexistent"])
+        assert result.exit_code == 0
+        assert "No subtask found" in result.output
+
 
 class TestProgressCommands:
     """Tests for progress commands."""
