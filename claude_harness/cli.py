@@ -574,6 +574,27 @@ def progress_new_session(ctx):
     console.print("[green]Started new session. Previous session archived.[/green]")
 
 
+@progress.command("history")
+@click.option("--limit", "-l", default=10, help="Number of sessions to show")
+@click.option("--show", "-s", type=int, help="Show details of session at index (1-based)")
+@click.pass_context
+def progress_history(ctx, limit: int, show: int):
+    """View session history.
+
+    Examples:
+        claude-harness progress history
+        claude-harness progress history --limit 5
+        claude-harness progress history --show 1  # Show most recent
+    """
+    project_path = ctx.obj["project_path"]
+    pt = ProgressTracker(project_path)
+
+    if show:
+        pt.show_session(show)
+    else:
+        pt.show_history(limit)
+
+
 @progress.command("update")
 @click.option("--completed", "-c", multiple=True, help="Completed items")
 @click.option("--wip", "-w", multiple=True, help="Work in progress items")

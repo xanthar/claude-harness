@@ -411,6 +411,62 @@ class TestProgressCommands:
         assert result.exit_code == 0
         assert "file" in result.output.lower()
 
+    def test_progress_history_empty(self, runner, initialized_project):
+        """Test history command with no archived sessions."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["progress", "history"])
+        assert result.exit_code == 0
+        assert "No session history" in result.output
+
+    def test_progress_history_with_sessions(self, runner, initialized_project):
+        """Test history command with archived sessions."""
+        import os
+        os.chdir(initialized_project)
+
+        # Create session history directory with a session file
+        history_dir = initialized_project / ".claude-harness" / "session-history"
+        history_dir.mkdir()
+
+        session_content = """## Last Session: 2025-12-12 10:00 UTC
+
+### Completed This Session
+- [x] First completed task
+- [x] Second completed task
+
+### Current Work In Progress
+- [ ] Some work
+
+### Blockers
+- None
+"""
+        (history_dir / "session_2025-12-12_1000_UTC.md").write_text(session_content)
+
+        result = runner.invoke(main, ["progress", "history"])
+        assert result.exit_code == 0
+        assert "Session History" in result.output
+        assert "2025-12-12" in result.output
+
+    def test_progress_history_show_session(self, runner, initialized_project):
+        """Test showing a specific historical session."""
+        import os
+        os.chdir(initialized_project)
+
+        # Create session history
+        history_dir = initialized_project / ".claude-harness" / "session-history"
+        history_dir.mkdir()
+
+        session_content = """## Last Session: 2025-12-12 10:00 UTC
+
+### Completed This Session
+- [x] Test task one
+"""
+        (history_dir / "session_2025-12-12_1000_UTC.md").write_text(session_content)
+
+        result = runner.invoke(main, ["progress", "history", "--show", "1"])
+        assert result.exit_code == 0
+        assert "Test task one" in result.output
+
 
 class TestContextCommands:
     """Tests for context commands."""
