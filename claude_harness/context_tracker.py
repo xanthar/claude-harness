@@ -763,6 +763,218 @@ class ContextTracker:
 
         return results
 
+    # --- Pruning and Optimization Methods ---
+
+    def prune_stale_context(self, max_files: int = 30, max_age_minutes: int = 30) -> dict:
+        """Remove stale file references from tracking.
+
+        Prunes tracked files based on:
+        - Maximum number of files to keep (most recent)
+        - Files older than max_age_minutes are considered stale
+
+        Args:
+            max_files: Maximum number of tracked files to retain (default: 30)
+            max_age_minutes: Files accessed longer ago than this are stale (default: 30)
+
+        Returns:
+            dict with 'pruned_files' list and 'tokens_freed' estimate
+        """
+        if not self.is_enabled():
+            return {"pruned_files": [], "tokens_freed": 0}
+
+        metrics = self._load_metrics()
+        pruned_files = []
+        tokens_freed = 0
+
+        # Get file stats to determine age (using mtime as proxy)
+        file_stats = []
+        for filepath in metrics.files_read:
+            try:
+                path = Path(filepath)
+                if path.exists():
+                    mtime = path.stat().st_mtime
+                    age_minutes = (time.time() - mtime) / 60
+                    file_stats.append({
+                        "path": filepath,
+                        "mtime": mtime,
+                        "age_minutes": age_minutes,
+                    })
+                else:
+                    # File no longer exists - mark for removal
+                    file_stats.append({
+                        "path": filepath,
+                        "mtime": 0,
+                        "age_minutes": float("inf"),
+                    })
+            except OSError:
+                # Cannot access file - mark for removal
+                file_stats.append({
+                    "path": filepath,
+                    "mtime": 0,
+                    "age_minutes": float("inf"),
+                })
+
+        # Sort by mtime descending (most recent first)
+        file_stats.sort(key=lambda x: x["mtime"], reverse=True)
+
+        # Determine which files to prune
+        files_to_keep = []
+        for i, fs in enumerate(file_stats):
+            # Keep if within max_files limit and not too old
+            if i < max_files and fs["age_minutes"] < max_age_minutes:
+                files_to_keep.append(fs["path"])
+            else:
+                pruned_files.append(fs["path"])
+                # Estimate tokens freed (assume average file size)
+                # Using a conservative estimate of ~1000 tokens per file
+                tokens_freed += 1000
+
+        # Update metrics with pruned list
+        if pruned_files:
+            metrics.files_read = files_to_keep
+            # Adjust estimated tokens (rough estimate)
+            metrics.estimated_input_tokens = max(
+                0, metrics.estimated_input_tokens - tokens_freed
+            )
+            metrics.estimated_total_tokens = max(
+                0, metrics.estimated_total_tokens - tokens_freed
+            )
+            self._save_metrics()
+
+        return {
+            "pruned_files": pruned_files,
+            "tokens_freed": tokens_freed,
+        }
+
+    def get_compact_summary(self) -> str:
+        """Get compact context summary (essential info only, <500 chars).
+
+        Returns a concise one-line summary suitable for status bars,
+        log headers, or quick context checks.
+
+        Returns:
+            Compact string summary under 500 characters
+        """
+        if not self.is_enabled():
+            return "Context tracking disabled"
+
+        metrics = self._load_metrics()
+
+        # Build compact status indicator
+        if metrics.status == "critical":
+            status_icon = "[!]"
+        elif metrics.status == "warning":
+            status_icon = "[*]"
+        else:
+            status_icon = "[ok]"
+
+        # Get current feature if available
+        feature_info = ""
+        features_file = self.project_path / ".claude-harness" / "features.json"
+        if features_file.exists():
+            try:
+                import json
+                with open(features_file) as f:
+                    features_data = json.load(f)
+                in_progress = [
+                    f for f in features_data.get("features", [])
+                    if f.get("status") == "in_progress"
+                ]
+                if in_progress:
+                    feat_id = in_progress[0].get("id", "?")
+                    feature_info = f" | Feat:{feat_id}"
+            except Exception:
+                pass
+
+        # Format remaining tokens in human-readable form
+        remaining = metrics.remaining_tokens
+        if remaining >= 1000000:
+            remaining_str = f"{remaining / 1000000:.1f}M"
+        elif remaining >= 1000:
+            remaining_str = f"{remaining / 1000:.0f}k"
+        else:
+            remaining_str = str(remaining)
+
+        # Build the summary (aim for <500 chars)
+        summary = (
+            f"{status_icon} "
+            f"{metrics.context_usage_percent:.0f}% used "
+            f"({remaining_str} left) | "
+            f"R:{len(metrics.files_read)} W:{len(metrics.files_written)} "
+            f"C:{metrics.commands_executed}"
+            f"{feature_info}"
+        )
+
+        # Truncate if somehow over 500 chars
+        if len(summary) > 500:
+            summary = summary[:497] + "..."
+
+        return summary
+
+    def categorize_tracked_files(self) -> dict:
+        """Categorize tracked files by type.
+
+        Groups files into logical categories for better context awareness:
+        - code: Source code files (.py, .js, .ts, etc.)
+        - config: Configuration files (.json, .yaml, .toml, etc.)
+        - docs: Documentation files (.md, .rst, .txt, etc.)
+        - tests: Test files (test_*.py, *_test.py, etc.)
+        - other: Everything else
+
+        Returns:
+            dict mapping category names to lists of file paths
+        """
+        metrics = self._load_metrics()
+
+        categories = {
+            "code": [],
+            "config": [],
+            "docs": [],
+            "tests": [],
+            "other": [],
+        }
+
+        # Extension mappings
+        code_extensions = {
+            ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java",
+            ".c", ".cpp", ".h", ".hpp", ".cs", ".rb", ".php", ".swift",
+            ".kt", ".scala", ".sh", ".bash", ".ps1", ".sql",
+        }
+
+        config_extensions = {
+            ".json", ".yaml", ".yml", ".toml", ".xml", ".ini", ".cfg",
+            ".env", ".properties", ".conf",
+        }
+
+        doc_extensions = {
+            ".md", ".rst", ".txt", ".adoc", ".html", ".htm",
+        }
+
+        # Test file patterns (case-insensitive checks)
+        test_patterns = ("test_", "_test.", "tests/", "/tests/", "spec_", "_spec.")
+
+        for filepath in metrics.files_read:
+            path = Path(filepath)
+            suffix = path.suffix.lower()
+            name_lower = path.name.lower()
+            filepath_lower = filepath.lower()
+
+            # Check for test files first (they may be .py but are tests)
+            is_test = any(pattern in filepath_lower for pattern in test_patterns)
+
+            if is_test:
+                categories["tests"].append(filepath)
+            elif suffix in code_extensions:
+                categories["code"].append(filepath)
+            elif suffix in config_extensions:
+                categories["config"].append(filepath)
+            elif suffix in doc_extensions:
+                categories["docs"].append(filepath)
+            else:
+                categories["other"].append(filepath)
+
+        return categories
+
 
 def get_context_tracker(project_path: str = ".") -> ContextTracker:
     """Get a context tracker instance."""
