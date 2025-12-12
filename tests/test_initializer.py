@@ -187,8 +187,18 @@ class TestInitializerFileGeneration:
         log_activity = hooks_dir / "log-activity.sh"
         assert log_activity.exists()
 
-        track_progress = hooks_dir / "track-progress.sh"
-        assert track_progress.exists()
+        # Check new tracking hooks (read JSON from stdin)
+        track_read = hooks_dir / "track-read.sh"
+        assert track_read.exists()
+
+        track_write = hooks_dir / "track-write.sh"
+        assert track_write.exists()
+
+        track_edit = hooks_dir / "track-edit.sh"
+        assert track_edit.exists()
+
+        session_stop = hooks_dir / "session-stop.sh"
+        assert session_stop.exists()
 
     def test_write_e2e_setup(self, initializer, temp_project):
         """Test E2E setup generation."""

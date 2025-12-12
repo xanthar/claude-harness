@@ -1371,38 +1371,57 @@ Write-Host ""
         return script
 
     def _write_hooks(self):
-        """Write Claude Code hooks."""
+        """Write Claude Code hooks that read JSON from stdin."""
         hooks_dir = self.project_path / ".claude-harness" / "hooks"
 
-        # Git safety hook
+        # Git safety hook - PreToolUse for Bash commands
+        # Reads JSON from stdin, extracts command, checks for dangerous operations
         git_safety = f'''#!/bin/bash
-# Claude Harness - Git Safety Hook
+# Claude Harness - Git Safety Hook (PreToolUse)
 # Blocks dangerous git operations
+# Input: JSON via stdin with tool_input.command
 
-INPUT="$1"
+# Read JSON from stdin
+INPUT_JSON=$(cat)
+
+# Extract the command from tool_input
+COMMAND=$(echo "$INPUT_JSON" | jq -r '.tool_input.command // empty' 2>/dev/null)
+
+# If no command found, allow
+[ -z "$COMMAND" ] && exit 0
+
 PROTECTED_BRANCHES="{" ".join(self.config.protected_branches)}"
 
-# Block direct commits to protected branches
+# Check current branch
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+
+# Block commits on protected branches
 for branch in $PROTECTED_BRANCHES; do
-    if echo "$INPUT" | grep -qE "git commit.*$branch"; then
-        echo "BLOCKED: Cannot commit directly to protected branch '$branch'. Create a feature branch first."
-        exit 1
+    if [ "$CURRENT_BRANCH" = "$branch" ]; then
+        if echo "$COMMAND" | grep -qE "^git commit"; then
+            echo "BLOCKED: Cannot commit on protected branch '$branch'. Create a feature branch first." >&2
+            exit 2
+        fi
     fi
 done
 
 # Block force pushes to protected branches
 for branch in $PROTECTED_BRANCHES; do
-    if echo "$INPUT" | grep -qE "git push.*(-f|--force).*$branch"; then
-        echo "BLOCKED: Cannot force push to protected branch '$branch'."
-        exit 1
+    if echo "$COMMAND" | grep -qE "git push.*(-f|--force).*($branch|origin/$branch)"; then
+        echo "BLOCKED: Cannot force push to protected branch '$branch'." >&2
+        exit 2
     fi
 done
 
-# Block backup branch deletion
-if echo "$INPUT" | grep -qiE "git branch -[dD].*[Bb]ackup"; then
-    echo "BLOCKED: Cannot delete backup branches."
-    exit 1
-fi
+# Block destructive rebase on protected branches
+for branch in $PROTECTED_BRANCHES; do
+    if echo "$COMMAND" | grep -qE "git rebase.*(origin/)?$branch"; then
+        if [ "$CURRENT_BRANCH" = "$branch" ]; then
+            echo "BLOCKED: Cannot rebase on protected branch '$branch'." >&2
+            exit 2
+        fi
+    fi
+done
 
 exit 0
 '''
@@ -1412,18 +1431,145 @@ exit 0
             f.write(git_safety)
         os.chmod(git_safety_path, 0o755)
 
-        # Activity logger hook
-        activity_logger = '''#!/bin/bash
-# Claude Harness - Activity Logger
-# Logs tool usage for session tracking
+        # Track Read hook - PostToolUse for Read tool
+        track_read = '''#!/bin/bash
+# Claude Harness - Track File Read (PostToolUse)
+# Tracks files read for context estimation
+# Input: JSON via stdin with tool_input.file_path
 
-TOOL_NAME="$1"
-TOOL_INPUT="$2"
+# Read JSON from stdin
+INPUT_JSON=$(cat)
+
+# Extract file path
+FILE_PATH=$(echo "$INPUT_JSON" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+
+# Skip if no file path or harness not initialized
+[ -z "$FILE_PATH" ] && exit 0
+[ -f ".claude-harness/config.json" ] || exit 0
+
+# Get file size for token estimation
+if [ -f "$FILE_PATH" ]; then
+    CHAR_COUNT=$(wc -c < "$FILE_PATH" 2>/dev/null || echo 1000)
+    claude-harness context track-file "$FILE_PATH" "$CHAR_COUNT" 2>/dev/null || true
+fi
+
+exit 0
+'''
+
+        track_read_path = hooks_dir / "track-read.sh"
+        with open(track_read_path, "w") as f:
+            f.write(track_read)
+        os.chmod(track_read_path, 0o755)
+
+        # Track Write hook - PostToolUse for Write tool
+        track_write = '''#!/bin/bash
+# Claude Harness - Track File Write (PostToolUse)
+# Tracks files written for progress tracking
+# Input: JSON via stdin with tool_input.file_path
+
+# Read JSON from stdin
+INPUT_JSON=$(cat)
+
+# Extract file path
+FILE_PATH=$(echo "$INPUT_JSON" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+
+# Skip if no file path or harness not initialized
+[ -z "$FILE_PATH" ] && exit 0
+[ -f ".claude-harness/config.json" ] || exit 0
+
+# Skip harness internal files
+case "$FILE_PATH" in
+    */.claude-harness/*|*/.git/*|*.log|*.pyc|*/__pycache__/*|*/node_modules/*|*.env*)
+        exit 0
+        ;;
+esac
+
+# Track the file in progress
+claude-harness progress file "$FILE_PATH" 2>/dev/null || true
+
+# Also track in context (estimate tokens for content written)
+CONTENT_LENGTH=$(echo "$INPUT_JSON" | jq -r '.tool_input.content // empty' 2>/dev/null | wc -c)
+if [ "$CONTENT_LENGTH" -gt 0 ]; then
+    claude-harness context track-file "$FILE_PATH" "$CONTENT_LENGTH" 2>/dev/null || true
+fi
+
+exit 0
+'''
+
+        track_write_path = hooks_dir / "track-write.sh"
+        with open(track_write_path, "w") as f:
+            f.write(track_write)
+        os.chmod(track_write_path, 0o755)
+
+        # Track Edit hook - PostToolUse for Edit tool
+        track_edit = '''#!/bin/bash
+# Claude Harness - Track File Edit (PostToolUse)
+# Tracks files edited for progress tracking
+# Input: JSON via stdin with tool_input.file_path
+
+# Read JSON from stdin
+INPUT_JSON=$(cat)
+
+# Extract file path
+FILE_PATH=$(echo "$INPUT_JSON" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+
+# Skip if no file path or harness not initialized
+[ -z "$FILE_PATH" ] && exit 0
+[ -f ".claude-harness/config.json" ] || exit 0
+
+# Skip harness internal files
+case "$FILE_PATH" in
+    */.claude-harness/*|*/.git/*|*.log|*.pyc|*/__pycache__/*|*/node_modules/*|*.env*)
+        exit 0
+        ;;
+esac
+
+# Track the file in progress
+claude-harness progress file "$FILE_PATH" 2>/dev/null || true
+
+# Estimate tokens for edit (old_string + new_string)
+OLD_LEN=$(echo "$INPUT_JSON" | jq -r '.tool_input.old_string // empty' 2>/dev/null | wc -c)
+NEW_LEN=$(echo "$INPUT_JSON" | jq -r '.tool_input.new_string // empty' 2>/dev/null | wc -c)
+TOTAL_LEN=$((OLD_LEN + NEW_LEN))
+if [ "$TOTAL_LEN" -gt 0 ]; then
+    claude-harness context track-file "$FILE_PATH" "$TOTAL_LEN" 2>/dev/null || true
+fi
+
+exit 0
+'''
+
+        track_edit_path = hooks_dir / "track-edit.sh"
+        with open(track_edit_path, "w") as f:
+            f.write(track_edit)
+        os.chmod(track_edit_path, 0o755)
+
+        # Activity logger hook - PostToolUse for Bash
+        activity_logger = '''#!/bin/bash
+# Claude Harness - Activity Logger (PostToolUse)
+# Logs bash commands for session tracking
+# Input: JSON via stdin with tool_input.command
+
+# Read JSON from stdin
+INPUT_JSON=$(cat)
+
+# Extract command
+COMMAND=$(echo "$INPUT_JSON" | jq -r '.tool_input.command // empty' 2>/dev/null)
+
+# Skip if no command or harness not initialized
+[ -z "$COMMAND" ] && exit 0
+[ -f ".claude-harness/config.json" ] || exit 0
+
 LOG_DIR=".claude-harness/session-history"
 LOG_FILE="$LOG_DIR/activity-$(date +%Y%m%d).log"
 
 mkdir -p "$LOG_DIR"
-echo "[$(date -Iseconds)] $TOOL_NAME: ${TOOL_INPUT:0:200}" >> "$LOG_FILE"
+echo "[$(date -Iseconds)] Bash: ${COMMAND:0:200}" >> "$LOG_FILE"
+
+# Track command execution in context
+COMMAND_LEN=${#COMMAND}
+claude-harness context track-command "$COMMAND_LEN" 2>/dev/null || true
+
+exit 0
 '''
 
         logger_path = hooks_dir / "log-activity.sh"
@@ -1431,36 +1577,34 @@ echo "[$(date -Iseconds)] $TOOL_NAME: ${TOOL_INPUT:0:200}" >> "$LOG_FILE"
             f.write(activity_logger)
         os.chmod(logger_path, 0o755)
 
-        # Progress tracking hook
-        track_progress = '''#!/bin/bash
-# Claude Harness - Auto Progress Tracker
-# Automatically tracks modified files in progress.md
+        # Session stop hook - shows summary
+        session_stop = '''#!/bin/bash
+# Claude Harness - Session Stop Hook
+# Shows context and progress summary when Claude stops
 
-FILEPATH="$1"
-ACTION="${2:-write}"  # write or edit
-
-# Skip if not a harness project
 [ -f ".claude-harness/config.json" ] || exit 0
 
-# Skip harness internal files and common non-code files
-case "$FILEPATH" in
-    .claude-harness/*|.git/*|*.log|*.pyc|__pycache__/*|node_modules/*|.env*)
-        exit 0
-        ;;
-esac
+echo ""
+echo "=== Session Summary ==="
+claude-harness context show 2>/dev/null || true
+echo "---"
+claude-harness progress show 2>/dev/null || true
+echo "======================="
 
-# Track the file modification
-claude-harness progress file "$FILEPATH" 2>/dev/null || true
+exit 0
 '''
 
-        track_progress_path = hooks_dir / "track-progress.sh"
-        with open(track_progress_path, "w") as f:
-            f.write(track_progress)
-        os.chmod(track_progress_path, 0o755)
+        session_stop_path = hooks_dir / "session-stop.sh"
+        with open(session_stop_path, "w") as f:
+            f.write(session_stop)
+        os.chmod(session_stop_path, 0o755)
 
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/check-git-safety.sh")
+        console.print(f"  [green]Created:[/green] .claude-harness/hooks/track-read.sh")
+        console.print(f"  [green]Created:[/green] .claude-harness/hooks/track-write.sh")
+        console.print(f"  [green]Created:[/green] .claude-harness/hooks/track-edit.sh")
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/log-activity.sh")
-        console.print(f"  [green]Created:[/green] .claude-harness/hooks/track-progress.sh")
+        console.print(f"  [green]Created:[/green] .claude-harness/hooks/session-stop.sh")
 
     def _write_claude_settings(self):
         """Write Claude Code settings.json with harness hooks."""
@@ -1469,43 +1613,74 @@ claude-harness progress file "$FILEPATH" 2>/dev/null || true
 
         settings_path = claude_dir / "settings.json"
 
+        # Correct Claude Code hooks format - hooks receive JSON via stdin
         hooks_config = {
             "hooks": {
                 "PreToolUse": [
                     {
                         "matcher": "Bash",
-                        "command": "[ -f .claude-harness/hooks/check-git-safety.sh ] && .claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\"",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": ".claude-harness/hooks/check-git-safety.sh"
+                            }
+                        ]
                     }
                 ],
                 "PostToolUse": [
                     {
                         "matcher": "Read",
-                        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" $(wc -c < \"$TOOL_INPUT\" 2>/dev/null || echo 1000)",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": ".claude-harness/hooks/track-read.sh"
+                            }
+                        ]
                     },
                     {
                         "matcher": "Write",
-                        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" write",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": ".claude-harness/hooks/track-write.sh"
+                            }
+                        ]
                     },
                     {
                         "matcher": "Edit",
-                        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" edit",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": ".claude-harness/hooks/track-edit.sh"
+                            }
+                        ]
                     },
                     {
                         "matcher": "Bash",
-                        "command": "[ -f .claude-harness/hooks/log-activity.sh ] && .claude-harness/hooks/log-activity.sh \"Bash\" \"$TOOL_INPUT\"",
-                    },
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": ".claude-harness/hooks/log-activity.sh"
+                            }
+                        ]
+                    }
                 ],
                 "Stop": [
                     {
-                        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; echo '---'; claude-harness progress show)",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": ".claude-harness/hooks/session-stop.sh"
+                            }
+                        ]
                     }
-                ],
+                ]
             },
             "permissions": {
                 "allow": [
-                    "Bash(claude-harness:*)",
+                    "Bash(claude-harness:*)"
                 ]
-            },
+            }
         }
 
         if settings_path.exists():
