@@ -139,6 +139,61 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "list"])
         assert result.exit_code == 0
 
+    def test_feature_list_priority_filter(self, runner, initialized_project):
+        """Test feature list with priority filter."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Low Priority", "-p", "5"])
+        runner.invoke(main, ["feature", "add", "High Priority", "-p", "1"])
+        runner.invoke(main, ["feature", "add", "Another High", "-p", "1"])
+
+        result = runner.invoke(main, ["feature", "list", "--priority", "1"])
+        assert result.exit_code == 0
+        assert "High Priority" in result.output
+        assert "Another High" in result.output
+        assert "Low Priority" not in result.output
+        assert "2 feature(s) found" in result.output
+
+    def test_feature_list_search_filter(self, runner, initialized_project):
+        """Test feature list with search filter."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "User Authentication"])
+        runner.invoke(main, ["feature", "add", "Payment Processing"])
+        runner.invoke(main, ["feature", "add", "Auth Token Refresh"])
+
+        result = runner.invoke(main, ["feature", "list", "--search", "auth"])
+        assert result.exit_code == 0
+        assert "User Authentication" in result.output
+        assert "Auth Token Refresh" in result.output
+        assert "Payment Processing" not in result.output
+        assert "2 feature(s) found" in result.output
+
+    def test_feature_list_combined_filters(self, runner, initialized_project):
+        """Test feature list with multiple filters combined."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Auth Login", "-p", "1"])
+        runner.invoke(main, ["feature", "add", "Auth Logout", "-p", "2"])
+        runner.invoke(main, ["feature", "add", "Payment", "-p", "1"])
+
+        result = runner.invoke(main, ["feature", "list", "-p", "1", "-q", "auth"])
+        assert result.exit_code == 0
+        assert "Auth Login" in result.output
+        assert "Auth Logout" not in result.output
+        assert "Payment" not in result.output
+        assert "1 feature(s) found" in result.output
+
+    def test_feature_list_no_match(self, runner, initialized_project):
+        """Test feature list when no features match filters."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Some Feature"])
+
+        result = runner.invoke(main, ["feature", "list", "--search", "nonexistent"])
+        assert result.exit_code == 0
+        assert "No features match" in result.output
+
     def test_feature_add(self, runner, initialized_project):
         """Test adding a feature."""
         import os
@@ -325,6 +380,59 @@ class TestFeatureCommands:
         os.chdir(initialized_project)
         result = runner.invoke(main, ["feature", "note", "F-999", "Some note"])
         assert "not found" in result.output.lower()
+
+    def test_feature_bulk_start(self, runner, initialized_project):
+        """Test starting multiple features at once."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+        runner.invoke(main, ["feature", "add", "Feature 3"])
+
+        # Use --yes to skip confirmation
+        result = runner.invoke(main, ["feature", "start", "F-001", "F-002", "--yes"])
+        assert result.exit_code == 0
+        assert "F-001" in result.output
+        assert "F-002" in result.output
+        assert "2 feature(s) started" in result.output
+
+    def test_feature_bulk_start_warning(self, runner, initialized_project):
+        """Test that bulk start shows warning without --yes."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+
+        # Without --yes, should show warning and abort when we say no
+        result = runner.invoke(main, ["feature", "start", "F-001", "F-002"], input="n\n")
+        assert result.exit_code == 0
+        assert "Warning" in result.output
+        assert "Aborted" in result.output
+
+    def test_feature_bulk_block(self, runner, initialized_project):
+        """Test blocking multiple features at once."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+
+        result = runner.invoke(main, ["feature", "block", "F-001", "F-002", "-r", "Dependencies missing"])
+        assert result.exit_code == 0
+        assert "Blocked" in result.output
+        assert "F-001" in result.output
+        assert "F-002" in result.output
+        assert "2 feature(s) blocked" in result.output
+
+    def test_feature_bulk_partial_not_found(self, runner, initialized_project):
+        """Test bulk operation with some features not found."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+
+        result = runner.invoke(main, ["feature", "block", "F-001", "F-999", "-r", "Test"])
+        assert result.exit_code == 0
+        assert "Blocked" in result.output  # F-001 should be blocked
+        assert "not found" in result.output.lower()  # F-999 not found
 
 
 class TestProgressCommands:

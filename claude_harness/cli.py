@@ -145,16 +145,50 @@ def feature(ctx):
 @feature.command("list")
 @click.option("--all", "-a", "show_all", is_flag=True, help="Include completed features")
 @click.option("--status", "-s", type=click.Choice(["pending", "in_progress", "blocked"]))
+@click.option("--priority", "-p", type=int, help="Filter by priority level")
+@click.option("--search", "-q", help="Search in feature names (case-insensitive)")
 @click.pass_context
-def feature_list(ctx, show_all: bool, status: str):
-    """List features."""
+def feature_list(ctx, show_all: bool, status: str, priority: int, search: str):
+    """List features with optional filters.
+
+    Examples:
+        claude-harness feature list
+        claude-harness feature list --status pending
+        claude-harness feature list --priority 1
+        claude-harness feature list --search auth
+        claude-harness feature list -s pending -p 1 -q login
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
 
-    if status:
+    # If any filter is applied, use filtered list view
+    if status or priority is not None or search:
         features = fm.list_features(status=status)
+
+        # Apply priority filter
+        if priority is not None:
+            features = [f for f in features if f.priority == priority]
+
+        # Apply search filter
+        if search:
+            search_lower = search.lower()
+            features = [f for f in features if search_lower in f.name.lower()]
+
+        if not features:
+            console.print("[yellow]No features match the filters[/yellow]")
+            return
+
+        console.print()
         for f in features:
-            console.print(f"  {f.id}: {f.name} [{f.status}]")
+            status_colors = {
+                "pending": "blue",
+                "in_progress": "yellow",
+                "completed": "green",
+                "blocked": "red",
+            }
+            color = status_colors.get(f.status, "white")
+            console.print(f"  {f.id}: {f.name} [{color}]{f.status}[/{color}] (P{f.priority})")
+        console.print(f"\n[dim]{len(features)} feature(s) found[/dim]")
     else:
         fm.show_table(include_completed=show_all)
 
@@ -242,23 +276,51 @@ def feature_add(ctx, name: str, priority: int, subtask: tuple, notes: str):
 
 
 @feature.command("start")
-@click.argument("feature_id")
+@click.argument("feature_ids", nargs=-1, required=True)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation for multiple features")
 @click.pass_context
-def feature_start(ctx, feature_id: str):
-    """Start working on a feature (marks as in_progress)."""
+def feature_start(ctx, feature_ids: tuple, yes: bool):
+    """Start working on feature(s) (marks as in_progress).
+
+    Can accept multiple feature IDs for bulk operations.
+
+    Examples:
+        claude-harness feature start F-001
+        claude-harness feature start F-001 F-002 F-003
+        claude-harness feature start F-001 F-002 --yes
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
+    pt = ProgressTracker(project_path)
 
-    feature = fm.start_feature(feature_id)
+    # Warn about multiple features (harness philosophy: one at a time)
+    if len(feature_ids) > 1 and not yes:
+        console.print(f"[yellow]Warning: Starting {len(feature_ids)} features at once.[/yellow]")
+        console.print("[dim]The harness philosophy recommends ONE feature at a time.[/dim]")
+        if not click.confirm("Continue anyway?"):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
 
-    if feature:
+    started = []
+    not_found = []
+
+    for feature_id in feature_ids:
+        feature = fm.start_feature(feature_id)
+        if feature:
+            started.append(feature)
+            pt.add_in_progress(f"{feature.id}: {feature.name}")
+        else:
+            not_found.append(feature_id)
+
+    # Report results
+    for feature in started:
         console.print(f"[green]Started: {feature.id} - {feature.name}[/green]")
 
-        # Also update progress
-        pt = ProgressTracker(project_path)
-        pt.add_in_progress(f"{feature.id}: {feature.name}")
-    else:
-        console.print(f"[red]Feature not found: {feature_id}[/red]")
+    for fid in not_found:
+        console.print(f"[red]Feature not found: {fid}[/red]")
+
+    if len(started) > 1:
+        console.print(f"\n[dim]{len(started)} feature(s) started[/dim]")
 
 
 @feature.command("complete")
@@ -282,25 +344,45 @@ def feature_complete(ctx, feature_id: str):
 
 
 @feature.command("block")
-@click.argument("feature_id")
+@click.argument("feature_ids", nargs=-1, required=True)
 @click.option("--reason", "-r", required=True, help="Reason for blocking")
 @click.pass_context
-def feature_block(ctx, feature_id: str, reason: str):
-    """Mark a feature as blocked."""
+def feature_block(ctx, feature_ids: tuple, reason: str):
+    """Mark feature(s) as blocked.
+
+    Can accept multiple feature IDs for bulk operations.
+
+    Examples:
+        claude-harness feature block F-001 -r "Waiting for API"
+        claude-harness feature block F-001 F-002 -r "Blocked by dependency"
+    """
     project_path = ctx.obj["project_path"]
     fm = FeatureManager(project_path)
+    pt = ProgressTracker(project_path)
 
-    feature = fm.update_status(feature_id, "blocked", blocked_reason=reason)
+    blocked = []
+    not_found = []
 
-    if feature:
+    for feature_id in feature_ids:
+        feature = fm.update_status(feature_id, "blocked", blocked_reason=reason)
+        if feature:
+            blocked.append(feature)
+            pt.add_blocker(f"{feature.id}: {reason}")
+        else:
+            not_found.append(feature_id)
+
+    # Report results
+    for feature in blocked:
         console.print(f"[yellow]Blocked: {feature.id} - {feature.name}[/yellow]")
+
+    if blocked:
         console.print(f"[yellow]Reason: {reason}[/yellow]")
 
-        # Add blocker to progress
-        pt = ProgressTracker(project_path)
-        pt.add_blocker(f"{feature.id}: {reason}")
-    else:
-        console.print(f"[red]Feature not found: {feature_id}[/red]")
+    for fid in not_found:
+        console.print(f"[red]Feature not found: {fid}[/red]")
+
+    if len(blocked) > 1:
+        console.print(f"\n[dim]{len(blocked)} feature(s) blocked[/dim]")
 
 
 @feature.command("unblock")

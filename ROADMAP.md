@@ -38,13 +38,13 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 - `--show <index>` to view specific session details
 
 #### 5. Enhanced Feature Filtering
-- [ ] `claude-harness feature list --status blocked` - Already exists, document better
-- [ ] `claude-harness feature list --priority 1` - Filter by priority
-- [ ] `claude-harness feature list --search "auth"` - Search in names
+- [x] `claude-harness feature list --status blocked` - Already exists, document better
+- [x] `claude-harness feature list --priority 1` - Filter by priority
+- [x] `claude-harness feature list --search "auth"` - Search in names
 
 #### 6. Bulk Operations
-- [ ] `claude-harness feature start F-001 F-002` - Start multiple (with warning)
-- [ ] `claude-harness feature block F-001 F-002 -r "reason"` - Block multiple
+- [x] `claude-harness feature start F-001 F-002` - Start multiple (with warning)
+- [x] `claude-harness feature block F-001 F-002 -r "reason"` - Block multiple
 
 ---
 
@@ -124,11 +124,13 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ## Completed Features
 
-### v1.1.0 (In Progress)
+### v1.1.0 (2025-12-12)
 - [x] Feature info command (`feature info <ID>`)
 - [x] Subtask name-based completion (`feature done <ID> <name>`)
 - [x] Feature notes command (`feature note <ID> "text"`)
 - [x] Progress history command (`progress history`)
+- [x] Enhanced feature filtering (`--priority`, `--search`)
+- [x] Bulk operations (`feature start/block` with multiple IDs)
 
 ### v1.0.0 (2025-12-12)
 - [x] Non-interactive initialization (`--non-interactive`)
