@@ -81,6 +81,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2025-12-12
+
+### Added
+
+#### Feature Management Enhancements
+- **Feature Info Command** (`claude-harness feature info <ID>`)
+  - Display detailed feature information
+  - Show all subtasks with completion status
+  - Show creation date, time in current status
+  - Display notes and blocked reason history
+
+- **Subtask Name-Based Completion** (`claude-harness feature done <ID> <name>`)
+  - Complete subtasks by partial name match (fuzzy matching)
+  - Case-insensitive matching
+  - Shows matched subtask for confirmation
+
+- **Feature Notes Command** (`claude-harness feature note <ID> "text"`)
+  - Add timestamped notes to features
+  - Notes visible in feature info display
+  - Works on features in any status (pending, in_progress, blocked, completed)
+
+- **Enhanced Feature Filtering**
+  - `--priority` / `-p` flag to filter by priority level
+  - `--search` / `-q` flag for case-insensitive name search
+  - Combinable with existing `--status` filter
+
+- **Bulk Operations**
+  - `feature start` accepts multiple feature IDs
+  - `feature block` accepts multiple feature IDs
+  - Warning prompt for multiple features (bypass with `--yes` / `-y`)
+  - Partial success handling with clear feedback
+
+#### Progress Tracking Enhancements
+- **Progress History Command** (`claude-harness progress history`)
+  - List archived sessions with summaries
+  - `--limit N` to show last N sessions (default: 10)
+  - `--show <index>` to view specific session details
+
+### Testing
+- 178 unit tests (up from 157)
+- New tests for all v1.1.0 features
+- 100% pass rate
+
+---
+
 ## [Unreleased]
 
 ### Planned
@@ -92,4 +137,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.1.0 | 2025-12-12 | Feature info, notes, bulk operations, enhanced filtering |
 | 1.0.0 | 2025-12-12 | Initial release with full feature set |

@@ -381,6 +381,59 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "note", "F-999", "Some note"])
         assert "not found" in result.output.lower()
 
+    def test_feature_bulk_start(self, runner, initialized_project):
+        """Test starting multiple features at once."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+        runner.invoke(main, ["feature", "add", "Feature 3"])
+
+        # Use --yes to skip confirmation
+        result = runner.invoke(main, ["feature", "start", "F-001", "F-002", "--yes"])
+        assert result.exit_code == 0
+        assert "F-001" in result.output
+        assert "F-002" in result.output
+        assert "2 feature(s) started" in result.output
+
+    def test_feature_bulk_start_warning(self, runner, initialized_project):
+        """Test that bulk start shows warning without --yes."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+
+        # Without --yes, should show warning and abort when we say no
+        result = runner.invoke(main, ["feature", "start", "F-001", "F-002"], input="n\n")
+        assert result.exit_code == 0
+        assert "Warning" in result.output
+        assert "Aborted" in result.output
+
+    def test_feature_bulk_block(self, runner, initialized_project):
+        """Test blocking multiple features at once."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+        runner.invoke(main, ["feature", "add", "Feature 2"])
+
+        result = runner.invoke(main, ["feature", "block", "F-001", "F-002", "-r", "Dependencies missing"])
+        assert result.exit_code == 0
+        assert "Blocked" in result.output
+        assert "F-001" in result.output
+        assert "F-002" in result.output
+        assert "2 feature(s) blocked" in result.output
+
+    def test_feature_bulk_partial_not_found(self, runner, initialized_project):
+        """Test bulk operation with some features not found."""
+        import os
+        os.chdir(initialized_project)
+        runner.invoke(main, ["feature", "add", "Feature 1"])
+
+        result = runner.invoke(main, ["feature", "block", "F-001", "F-999", "-r", "Test"])
+        assert result.exit_code == 0
+        assert "Blocked" in result.output  # F-001 should be blocked
+        assert "not found" in result.output.lower()  # F-999 not found
+
 
 class TestProgressCommands:
     """Tests for progress commands."""
