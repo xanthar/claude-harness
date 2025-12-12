@@ -187,6 +187,31 @@ class TestFeatureCommands:
         result = runner.invoke(main, ["feature", "start", "F-999"])
         assert "not found" in result.output.lower()
 
+    def test_feature_info(self, runner, initialized_project):
+        """Test feature info command."""
+        import os
+        os.chdir(initialized_project)
+        # Add a feature with subtasks and notes
+        runner.invoke(main, [
+            "feature", "add", "Test Feature",
+            "-s", "Subtask 1", "-s", "Subtask 2",
+            "-n", "Some notes here"
+        ])
+        result = runner.invoke(main, ["feature", "info", "F-001"])
+        assert result.exit_code == 0
+        assert "F-001" in result.output
+        assert "Test Feature" in result.output
+        assert "Subtask 1" in result.output
+        assert "Subtask 2" in result.output
+        assert "Some notes here" in result.output
+
+    def test_feature_info_not_found(self, runner, initialized_project):
+        """Test feature info with non-existent feature."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["feature", "info", "F-999"])
+        assert "not found" in result.output.lower()
+
     def test_feature_block(self, runner, initialized_project):
         """Test blocking a feature."""
         import os

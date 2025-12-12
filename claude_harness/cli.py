@@ -159,6 +159,67 @@ def feature_list(ctx, show_all: bool, status: str):
         fm.show_table(include_completed=show_all)
 
 
+@feature.command("info")
+@click.argument("feature_id")
+@click.pass_context
+def feature_info(ctx, feature_id: str):
+    """Show detailed information about a feature."""
+    project_path = ctx.obj["project_path"]
+    fm = FeatureManager(project_path)
+
+    feature = fm.get_feature(feature_id)
+
+    if not feature:
+        console.print(f"[red]Feature not found: {feature_id}[/red]")
+        return
+
+    # Header
+    status_colors = {
+        "pending": "blue",
+        "in_progress": "yellow",
+        "completed": "green",
+        "blocked": "red",
+    }
+    status_color = status_colors.get(feature.status, "white")
+
+    console.print()
+    console.print(f"[bold]{feature.id}[/bold]: {feature.name}")
+    console.print(f"  Status: [{status_color}]{feature.status}[/{status_color}]")
+    console.print(f"  Priority: {feature.priority}")
+
+    # Dates
+    if feature.created_at:
+        console.print(f"  Created: {feature.created_at[:16]}")
+    if feature.completed_at:
+        console.print(f"  Completed: {feature.completed_at[:16]}")
+
+    # Blocked reason
+    if feature.blocked_reason:
+        console.print(f"  [red]Blocked: {feature.blocked_reason}[/red]")
+
+    # Tests and E2E status
+    tests_mark = "[green]Yes[/green]" if feature.tests_passing else "[red]No[/red]"
+    e2e_mark = "[green]Yes[/green]" if feature.e2e_validated else "[red]No[/red]"
+    console.print(f"  Tests Passing: {tests_mark}")
+    console.print(f"  E2E Validated: {e2e_mark}")
+
+    # Subtasks
+    if feature.subtasks:
+        console.print()
+        console.print(f"  [bold]Subtasks ({feature.subtask_progress}):[/bold]")
+        for i, subtask in enumerate(feature.subtasks):
+            mark = "[green]x[/green]" if subtask.done else "[ ]"
+            console.print(f"    {i}. {mark} {subtask.name}")
+
+    # Notes
+    if feature.notes:
+        console.print()
+        console.print(f"  [bold]Notes:[/bold]")
+        console.print(f"    {feature.notes}")
+
+    console.print()
+
+
 @feature.command("add")
 @click.argument("name")
 @click.option("--priority", "-p", default=0, help="Priority (lower = higher priority)")
