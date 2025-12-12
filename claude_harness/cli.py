@@ -21,6 +21,12 @@ from .progress_tracker import ProgressTracker
 from .context_tracker import ContextTracker
 from .delegation_manager import DelegationManager, DelegationRule
 from .detector import detect_stack
+from .orchestration_engine import OrchestrationEngine, get_orchestration_engine
+from .file_filter import FileFilter
+from .output_compressor import OutputCompressor
+from .exploration_cache import ExplorationCache, get_exploration_cache
+from .file_read_optimizer import FileReadOptimizer
+from .lazy_loader import LazyContextLoader, get_lazy_loader
 
 
 console = Console()
@@ -1371,6 +1377,520 @@ def commands_list(ctx):
     console.print(f"\n[dim]Total: {len(cmds)} commands[/dim]")
 
 
+# --- Optimize Commands ---
+
+
+@main.group()
+@click.pass_context
+def optimize(ctx):
+    """Context optimization commands.
+
+    Tools to reduce token usage and optimize context:
+    - File filtering (skip irrelevant files)
+    - Output compression (summarize verbose outputs)
+    - Exploration caching (avoid re-reading files)
+    - Context pruning (remove stale references)
+    """
+    pass
+
+
+@optimize.command("status")
+@click.pass_context
+def optimize_status(ctx):
+    """Show optimization status and potential savings.
+
+    Displays statistics from all optimization tools:
+    - File filter configuration
+    - Compression rules
+    - Cache entries and savings
+    - Context tracker status
+    """
+    from rich.table import Table
+    from rich.panel import Panel
+
+    project_path = ctx.obj["project_path"]
+
+    console.print()
+    console.print(Panel.fit("[bold blue]Context Optimization Status[/bold blue]"))
+    console.print()
+
+    # File Filter stats
+    file_filter = FileFilter()
+    filter_stats = file_filter.get_statistics()
+
+    console.print("[bold]File Filter[/bold]")
+    console.print(f"  Enabled: {'[green]Yes[/green]' if filter_stats['enabled'] else '[red]No[/red]'}")
+    console.print(f"  Built-in patterns: {filter_stats['builtin_patterns']}")
+    console.print(f"  Custom excludes: {filter_stats['custom_excludes']}")
+    console.print(f"  Custom includes: {filter_stats['custom_includes']}")
+    console.print(f"  Total patterns: {filter_stats['total_excludes']}")
+    console.print()
+
+    # Output Compressor stats
+    compressor = OutputCompressor()
+    compressor_stats = compressor.get_statistics()
+
+    console.print("[bold]Output Compressor[/bold]")
+    console.print(f"  Enabled: {'[green]Yes[/green]' if compressor_stats['enabled'] else '[red]No[/red]'}")
+    console.print(f"  Min compress length: {compressor_stats['min_compress_length']:,} chars")
+    console.print(f"  Supported commands: {compressor_stats['rules_count']}")
+    console.print()
+
+    # Exploration Cache stats
+    cache = get_exploration_cache(project_path)
+    cache_stats = cache.get_stats()
+
+    console.print("[bold]Exploration Cache[/bold]")
+    console.print(f"  Total entries: {cache_stats['total_entries']}")
+    console.print(f"  Valid entries: {cache_stats['valid_entries']}")
+    console.print(f"  Expired entries: {cache_stats['expired_entries']}")
+    console.print(f"  Files cached: {cache_stats['total_files_cached']}")
+    console.print(f"  Est. tokens saved: [green]~{cache_stats['estimated_tokens_saved']:,}[/green]")
+    console.print()
+
+    # Context Tracker compact summary
+    ct = ContextTracker(project_path)
+    if ct.is_enabled():
+        summary = ct.get_compact_summary()
+        console.print("[bold]Context Tracker[/bold]")
+        console.print(f"  {summary}")
+    else:
+        console.print("[bold]Context Tracker[/bold]")
+        console.print("  [dim]Disabled[/dim]")
+    console.print()
+
+    # Total savings estimate
+    total_savings = cache_stats['estimated_tokens_saved']
+    console.print(f"[bold]Total Estimated Savings: [green]~{total_savings:,} tokens[/green][/bold]")
+
+
+@optimize.command("filter")
+@click.argument("files", nargs=-1)
+@click.option("--directory", "-d", default=".", help="Directory to scan (if no files provided)")
+@click.pass_context
+def optimize_filter(ctx, files, directory: str):
+    """Filter files to show which would be tracked/skipped.
+
+    Without arguments, scans the current directory.
+    With file arguments, shows the status of each file.
+
+    Examples:
+        claude-harness optimize filter
+        claude-harness optimize filter src/app.py node_modules/lodash/index.js
+        claude-harness optimize filter -d ./src
+    """
+    from rich.table import Table
+    import os
+
+    project_path = ctx.obj["project_path"]
+    file_filter = FileFilter()
+
+    # If no files provided, scan the directory
+    if not files:
+        scan_path = Path(directory).resolve()
+        if not scan_path.exists():
+            console.print(f"[red]Directory not found: {scan_path}[/red]")
+            sys.exit(1)
+
+        # Walk directory and collect files (limit to avoid overwhelming output)
+        files_list = []
+        for root, dirs, filenames in os.walk(scan_path):
+            # Skip common ignored directories at walk time
+            dirs[:] = [d for d in dirs if d not in {'.git', 'node_modules', '__pycache__', '.venv', 'venv'}]
+
+            for filename in filenames:
+                rel_path = os.path.relpath(os.path.join(root, filename), scan_path)
+                files_list.append(rel_path)
+                if len(files_list) >= 500:  # Limit
+                    break
+            if len(files_list) >= 500:
+                break
+        files = files_list
+
+    if not files:
+        console.print("[yellow]No files found to analyze[/yellow]")
+        return
+
+    # Filter and get details
+    result = file_filter.filter_with_details(list(files))
+
+    # Create table
+    table = Table(title="File Filter Results")
+    table.add_column("Status", style="bold", width=8)
+    table.add_column("File")
+    table.add_column("Reason", style="dim")
+
+    # Show tracked files
+    for filepath in result.tracked[:50]:  # Limit display
+        table.add_row("[green]TRACK[/green]", filepath, "")
+
+    # Show skipped files
+    for filepath in result.skipped[:50]:  # Limit display
+        reason = result.skip_reasons.get(filepath, "Filtered")
+        table.add_row("[yellow]SKIP[/yellow]", filepath, reason)
+
+    console.print(table)
+
+    # Summary
+    console.print()
+    console.print("[bold]Summary:[/bold]")
+    console.print(f"  Tracked: [green]{len(result.tracked)}[/green] files")
+    console.print(f"  Skipped: [yellow]{len(result.skipped)}[/yellow] files")
+    console.print(f"  Est. tokens saved: [green]~{result.tokens_saved_estimate:,}[/green]")
+
+    if len(files) > 100:
+        console.print(f"\n[dim]Showing first 50 of each category. Total files: {len(files)}[/dim]")
+
+
+@optimize.command("compress")
+@click.argument("command")
+@click.argument("output_file", type=click.Path(exists=True))
+@click.option("--force", "-f", is_flag=True, help="Force compression even for small outputs")
+@click.pass_context
+def optimize_compress(ctx, command: str, output_file: str, force: bool):
+    """Compress command output from a file.
+
+    Reads the output file and applies intelligent compression
+    based on the command type (pytest, npm, git, etc.).
+
+    Examples:
+        claude-harness optimize compress pytest /tmp/test_output.txt
+        claude-harness optimize compress "npm install" /tmp/npm_output.txt
+        claude-harness optimize compress mypy /tmp/mypy_output.txt --force
+    """
+    compressor = OutputCompressor()
+
+    # Read the output file
+    try:
+        with open(output_file, 'r') as f:
+            output_content = f.read()
+    except IOError as e:
+        console.print(f"[red]Error reading file: {e}[/red]")
+        sys.exit(1)
+
+    # Check if there's a compression rule
+    rule = compressor.get_compression_rule(command)
+    if rule:
+        console.print(f"[dim]Using compression rule for: {command}[/dim]")
+    else:
+        console.print(f"[dim]No specific rule for '{command}', using default compression[/dim]")
+
+    # Compress
+    result = compressor.compress_with_details(command, output_content, force=force)
+
+    # Show results
+    console.print()
+    console.print("[bold]Compression Results:[/bold]")
+    console.print(f"  Original: {result.original_lines} lines ({len(output_content):,} chars)")
+    console.print(f"  Compressed: {result.compressed_lines} lines ({len(result.output):,} chars)")
+    console.print(f"  Ratio: {result.compression_ratio:.1%}")
+    console.print(f"  [green]Tokens saved: ~{result.tokens_saved:,}[/green]")
+
+    if result.errors_found:
+        console.print(f"\n[bold]Errors found:[/bold] {len(result.errors_found)}")
+        for err in result.errors_found[:5]:
+            console.print(f"  [red]{err[:100]}...[/red]" if len(err) > 100 else f"  [red]{err}[/red]")
+        if len(result.errors_found) > 5:
+            console.print(f"  ... and {len(result.errors_found) - 5} more")
+
+    if result.summary_found:
+        console.print("\n[bold]Summary extracted:[/bold]")
+        console.print(f"  {result.summary_found[:200]}..." if len(result.summary_found) > 200 else f"  {result.summary_found}")
+
+    # Print compressed output
+    console.print("\n[bold]Compressed Output:[/bold]")
+    console.print("-" * 60)
+    console.print(result.output)
+    console.print("-" * 60)
+
+
+@optimize.command("cache")
+@click.pass_context
+def optimize_cache_list(ctx):
+    """List cached explorations.
+
+    Shows all cached exploration results with their age,
+    validity status, and estimated token savings.
+    """
+    from rich.table import Table
+
+    project_path = ctx.obj["project_path"]
+    cache = get_exploration_cache(project_path)
+
+    entries = cache.list_cached()
+
+    if not entries:
+        console.print("[yellow]No cached explorations found.[/yellow]")
+        console.print("[dim]Cache explorations using the exploration_cache module.[/dim]")
+        return
+
+    table = Table(title="Cached Explorations")
+    table.add_column("Name", style="cyan")
+    table.add_column("Files", justify="right")
+    table.add_column("Tokens", justify="right")
+    table.add_column("Age", justify="right")
+    table.add_column("Status")
+
+    for entry in entries:
+        age_str = f"{entry.age_hours:.1f}h"
+
+        if entry.is_valid():
+            remaining = entry.time_remaining_hours
+            if remaining == float("inf"):
+                status = "[green]Valid (no expiry)[/green]"
+            else:
+                status = f"[green]Valid ({remaining:.1f}h left)[/green]"
+        else:
+            status = "[red]Expired[/red]"
+
+        table.add_row(
+            entry.name[:40] + "..." if len(entry.name) > 40 else entry.name,
+            str(len(entry.files_found)),
+            f"~{entry.estimated_tokens:,}",
+            age_str,
+            status,
+        )
+
+    console.print(table)
+
+    # Summary
+    stats = cache.get_stats()
+    console.print()
+    console.print(f"[bold]Total: {stats['total_entries']} entries, ~{stats['estimated_tokens_saved']:,} tokens saved[/bold]")
+
+
+@optimize.command("cache-clear")
+@click.option("--expired-only", is_flag=True, help="Only clear expired entries")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def optimize_cache_clear(ctx, expired_only: bool, yes: bool):
+    """Clear exploration cache.
+
+    By default, clears all cache entries. Use --expired-only
+    to only remove expired entries.
+
+    Examples:
+        claude-harness optimize cache-clear
+        claude-harness optimize cache-clear --expired-only
+        claude-harness optimize cache-clear -y
+    """
+    project_path = ctx.obj["project_path"]
+    cache = get_exploration_cache(project_path)
+
+    if expired_only:
+        removed = cache.cleanup_expired()
+        console.print(f"[green]Removed {removed} expired cache entries.[/green]")
+    else:
+        stats = cache.get_stats()
+
+        if not yes and stats['total_entries'] > 0:
+            if not click.confirm(
+                f"Clear all {stats['total_entries']} cache entries (~{stats['estimated_tokens_saved']:,} tokens)?",
+                default=False
+            ):
+                console.print("[yellow]Aborted.[/yellow]")
+                return
+
+        removed = cache.invalidate_all()
+        console.print(f"[green]Cleared {removed} cache entries.[/green]")
+
+
+@optimize.command("prune")
+@click.option("--max-files", default=30, help="Max tracked files to keep")
+@click.option("--max-age", default=30, help="Max age in minutes for tracked files")
+@click.pass_context
+def optimize_prune(ctx, max_files: int, max_age: int):
+    """Prune stale context references.
+
+    Removes old file references from context tracking to reduce
+    token estimates and clean up stale data.
+
+    Examples:
+        claude-harness optimize prune
+        claude-harness optimize prune --max-files 20
+        claude-harness optimize prune --max-age 60
+    """
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    if not ct.is_enabled():
+        console.print("[yellow]Context tracking is disabled.[/yellow]")
+        return
+
+    result = ct.prune_stale_context(max_files=max_files, max_age_minutes=max_age)
+
+    if result['pruned_files']:
+        console.print(f"[green]Pruned {len(result['pruned_files'])} stale file references.[/green]")
+        console.print(f"[green]Estimated tokens freed: ~{result['tokens_freed']:,}[/green]")
+        console.print()
+        console.print("[dim]Pruned files:[/dim]")
+        for filepath in result['pruned_files'][:10]:
+            console.print(f"  - {filepath}")
+        if len(result['pruned_files']) > 10:
+            console.print(f"  ... and {len(result['pruned_files']) - 10} more")
+    else:
+        console.print("[dim]No stale files to prune.[/dim]")
+
+
+@optimize.command("summary")
+@click.pass_context
+def optimize_summary(ctx):
+    """Show compact context summary.
+
+    Displays a concise one-line summary of context usage,
+    suitable for status bars or quick checks.
+    """
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    if not ct.is_enabled():
+        console.print("[dim]Context tracking disabled[/dim]")
+        return
+
+    summary = ct.get_compact_summary()
+    console.print(summary)
+
+
+@optimize.command("categorize")
+@click.pass_context
+def optimize_categorize(ctx):
+    """Show tracked files by category.
+
+    Groups tracked files into categories (code, config, docs, tests, other)
+    for better context awareness.
+    """
+    from rich.table import Table
+
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    if not ct.is_enabled():
+        console.print("[yellow]Context tracking is disabled.[/yellow]")
+        return
+
+    categories = ct.categorize_tracked_files()
+
+    # Count totals
+    total = sum(len(files) for files in categories.values())
+
+    if total == 0:
+        console.print("[yellow]No files tracked yet.[/yellow]")
+        return
+
+    table = Table(title="Tracked Files by Category")
+    table.add_column("Category", style="bold")
+    table.add_column("Count", justify="right")
+    table.add_column("Files")
+
+    category_colors = {
+        "code": "cyan",
+        "config": "yellow",
+        "docs": "green",
+        "tests": "magenta",
+        "other": "white",
+    }
+
+    for category, files in categories.items():
+        color = category_colors.get(category, "white")
+        files_preview = ", ".join(Path(f).name for f in files[:5])
+        if len(files) > 5:
+            files_preview += f" +{len(files) - 5} more"
+
+        table.add_row(
+            f"[{color}]{category.title()}[/{color}]",
+            str(len(files)),
+            files_preview or "[dim]none[/dim]",
+        )
+
+    console.print(table)
+    console.print(f"\n[bold]Total tracked files: {total}[/bold]")
+
+
+@optimize.command("loading-plan")
+@click.argument("files", nargs=-1)
+@click.option("--task-type", "-t", default=None, help="Task type (test, docs, feature)")
+@click.option("--directory", "-d", default=None, help="Directory to scan")
+@click.pass_context
+def optimize_loading_plan(ctx, files, task_type: str, directory: str):
+    """Get a loading plan for files.
+
+    Uses the lazy loader to prioritize which files should be loaded
+    immediately vs deferred.
+
+    Examples:
+        claude-harness optimize loading-plan src/*.py
+        claude-harness optimize loading-plan -d ./src -t test
+        claude-harness optimize loading-plan README.md app.py test_app.py
+    """
+    from rich.table import Table
+    import glob as globmodule
+
+    project_path = ctx.obj["project_path"]
+    loader = get_lazy_loader(project_path)
+
+    # Collect files
+    files_list = list(files)
+
+    # If directory provided, scan it
+    if directory:
+        dir_path = Path(directory).resolve()
+        if dir_path.exists():
+            for filepath in dir_path.rglob("*"):
+                if filepath.is_file():
+                    files_list.append(str(filepath.relative_to(Path(project_path))))
+
+    # Expand globs
+    expanded_files = []
+    for f in files_list:
+        if "*" in f or "?" in f:
+            expanded_files.extend(globmodule.glob(f, recursive=True))
+        else:
+            expanded_files.append(f)
+
+    if not expanded_files:
+        console.print("[yellow]No files to analyze.[/yellow]")
+        return
+
+    # Get loading plan
+    plan = loader.get_loading_plan(expanded_files, task_type=task_type)
+
+    # Display immediate files
+    if plan['immediate']:
+        console.print("[bold]Immediate (load now):[/bold]")
+        for item in plan['immediate'][:15]:
+            console.print(f"  [green]{item['priority']}[/green] {item['filepath']}")
+            console.print(f"      [dim]{item['reason']}[/dim]")
+        if len(plan['immediate']) > 15:
+            console.print(f"  ... and {len(plan['immediate']) - 15} more")
+        console.print()
+
+    # Display deferred files
+    if plan['deferred']:
+        console.print("[bold]Deferred (load on demand):[/bold]")
+        for item in plan['deferred'][:10]:
+            console.print(f"  [yellow]{item['priority']}[/yellow] {item['filepath']}")
+            console.print(f"      [dim]{item['reason']}[/dim]")
+        if len(plan['deferred']) > 10:
+            console.print(f"  ... and {len(plan['deferred']) - 10} more")
+        console.print()
+
+    # Display skipped files
+    if plan['skipped']:
+        console.print("[bold]Skipped (not loaded):[/bold]")
+        for item in plan['skipped'][:5]:
+            console.print(f"  [red]{item['priority']}[/red] {item['filepath']}")
+        if len(plan['skipped']) > 5:
+            console.print(f"  ... and {len(plan['skipped']) - 5} more")
+        console.print()
+
+    # Summary
+    summary = plan['summary']
+    console.print("[bold]Summary:[/bold]")
+    console.print(f"  Total files: {summary['total_files']}")
+    console.print(f"  Immediate: [green]{summary['immediate_count']}[/green] (~{plan['tokens_immediate']:,} tokens)")
+    console.print(f"  Deferred/Skipped: [yellow]{summary['deferred_count'] + summary['skipped_count']}[/yellow] ([green]~{plan['tokens_saved']:,} tokens saved[/green])")
+
+
 # --- Run Commands ---
 
 
@@ -1391,6 +1911,336 @@ def run_init(ctx):
         subprocess.run(["bash", str(init_script)], cwd=project_path)
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
+
+
+# --- Orchestration Commands ---
+
+
+@main.group()
+@click.pass_context
+def orchestrate(ctx):
+    """Orchestration commands for automatic subagent delegation."""
+    pass
+
+
+@orchestrate.command("status")
+@click.pass_context
+def orchestrate_status(ctx):
+    """Show orchestration status and metrics."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+    status = engine.get_status()
+
+    # State display
+    state = status.get("state", "idle")
+    state_colors = {
+        "idle": "green",
+        "evaluating": "yellow",
+        "delegating": "blue",
+        "waiting": "cyan",
+        "integrating": "magenta",
+    }
+    state_color = state_colors.get(state, "white")
+
+    console.print()
+    console.print("[bold]Orchestration Engine[/bold]")
+    console.print(f"  State: [{state_color}]{state.upper()}[/{state_color}]")
+    console.print(
+        f"  Delegation available: "
+        f"{'[green]Yes[/green]' if status.get('delegation_available') else '[dim]No[/dim]'}"
+    )
+
+    # Metrics
+    metrics = status.get("metrics", {})
+    limits = status.get("limits", {})
+
+    console.print()
+    console.print("[bold]Session Metrics:[/bold]")
+    console.print(f"  Delegations: {limits.get('session_used', 0)}/{limits.get('session_max', 20)}")
+    console.print(f"  Completed: {metrics.get('completed_delegations', 0)}")
+    console.print(f"  Failed: {metrics.get('failed_delegations', 0)}")
+    console.print(f"  Tokens saved: {metrics.get('total_tokens_saved', 0):,}")
+
+    success_rate = metrics.get("success_rate", 0.0)
+    if metrics.get("total_delegations", 0) > 0:
+        console.print(f"  Success rate: {success_rate:.0%}")
+
+    # Active delegations
+    active = status.get("active", [])
+    if active:
+        console.print()
+        console.print(f"[bold yellow]Active Delegations ({len(active)}):[/bold yellow]")
+        for d in active:
+            console.print(f"  [{d['id']}] {d['subtask_name']} ({d['subagent_type']})")
+
+    # Queued delegations
+    queued = status.get("queued", [])
+    if queued:
+        console.print()
+        console.print(f"[bold blue]Queued ({len(queued)}):[/bold blue]")
+        for d in queued[:5]:
+            console.print(f"  [{d['id']}] {d['subtask_name']} (priority: {d['priority']})")
+        if len(queued) > 5:
+            console.print(f"  [dim]... and {len(queued) - 5} more[/dim]")
+
+    console.print()
+
+
+@orchestrate.command("evaluate")
+@click.pass_context
+def orchestrate_evaluate(ctx):
+    """Evaluate if auto-delegation should trigger."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+    result = engine.evaluate()
+
+    console.print()
+    console.print("[bold]Orchestration Evaluation[/bold]")
+    console.print()
+
+    # Context info
+    context_usage = result.get("context_usage", 0.0)
+    threshold = result.get("threshold", 0.5)
+    context_met = context_usage >= threshold
+
+    context_color = "green" if context_met else "yellow"
+    console.print(f"  Context usage: [{context_color}]{context_usage:.1%}[/{context_color}]")
+    console.print(f"  Threshold: {threshold:.0%}")
+
+    # Feature info
+    if result.get("feature_id"):
+        console.print(f"  Feature: {result['feature_id']} - {result.get('feature_name', '')}")
+
+    # Delegatable subtasks
+    delegatable = result.get("delegatable_subtasks", [])
+    if delegatable:
+        console.print()
+        console.print(f"[bold]Delegatable Subtasks ({len(delegatable)}):[/bold]")
+        for st in delegatable:
+            console.print(
+                f"  - {st['name']} [dim]({st['subagent_type']}, rule: {st['rule']}, "
+                f"priority: {st['priority']})[/dim]"
+            )
+
+    # Recommendation
+    console.print()
+    should_delegate = result.get("should_delegate", False)
+    if should_delegate:
+        console.print("[green bold]Recommendation: DELEGATE[/green bold]")
+        console.print("[dim]Run 'claude-harness orchestrate queue' to generate delegation queue[/dim]")
+    else:
+        console.print("[yellow]Recommendation: Do not delegate[/yellow]")
+        reasons = result.get("reasons", [])
+        if reasons:
+            console.print("[dim]Reasons:[/dim]")
+            for reason in reasons:
+                console.print(f"  - {reason}")
+
+    console.print()
+
+
+@orchestrate.command("queue")
+@click.argument("feature_id", required=False)
+@click.pass_context
+def orchestrate_queue(ctx, feature_id):
+    """Generate delegation queue for a feature."""
+    from rich.table import Table
+
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+
+    # Generate queue
+    queue = engine.generate_delegation_queue(feature_id)
+
+    if not queue:
+        console.print("[yellow]No delegatable subtasks found.[/yellow]")
+        console.print("[dim]Ensure you have a feature in progress with subtasks matching delegation rules.[/dim]")
+        return
+
+    # Display queue table
+    table = Table(title="Delegation Queue")
+    table.add_column("ID", style="cyan", width=10)
+    table.add_column("Subtask", style="white")
+    table.add_column("Type", style="yellow", width=10)
+    table.add_column("Priority", justify="center", width=8)
+    table.add_column("Est. Savings", justify="right", width=12)
+
+    total_savings = 0
+    for item in queue:
+        table.add_row(
+            item.id,
+            item.subtask_name[:40] + ("..." if len(item.subtask_name) > 40 else ""),
+            item.subagent_type,
+            str(item.priority),
+            f"{item.estimated_tokens_saved:,}",
+        )
+        total_savings += item.estimated_tokens_saved
+
+    console.print()
+    console.print(table)
+    console.print()
+    console.print(f"[bold]Total estimated savings: ~{total_savings:,} tokens[/bold]")
+    console.print()
+
+    # Show prompts preview
+    console.print("[dim]To start a delegation, run:[/dim]")
+    console.print("  claude-harness orchestrate start <DELEGATION_ID>")
+    console.print()
+
+    # Show first prompt as example
+    if queue:
+        prompt_preview = queue[0].prompt[:200] + "..." if len(queue[0].prompt) > 200 else queue[0].prompt
+        console.print("[bold]Example prompt for first delegation:[/bold]")
+        console.print(f"[dim]{prompt_preview}[/dim]")
+
+    console.print()
+
+
+@orchestrate.command("start")
+@click.argument("delegation_id")
+@click.pass_context
+def orchestrate_start(ctx, delegation_id):
+    """Mark a delegation as started."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+    item = engine.start_delegation(delegation_id)
+
+    if not item:
+        console.print(f"[red]Delegation not found in queue: {delegation_id}[/red]")
+        console.print("[dim]Run 'claude-harness orchestrate queue' to see available delegations.[/dim]")
+        return
+
+    console.print()
+    console.print(f"[green]Started delegation: {item.id}[/green]")
+    console.print(f"  Feature: {item.feature_id} - {item.feature_name}")
+    console.print(f"  Subtask: {item.subtask_name}")
+    console.print(f"  Type: {item.subagent_type}")
+    console.print()
+    console.print("[bold]Delegation Prompt:[/bold]")
+    console.print()
+    console.print(item.prompt)
+    console.print()
+    console.print("[dim]When complete, run:[/dim]")
+    console.print(f"  claude-harness orchestrate complete {item.id} -s \"<summary>\"")
+    console.print()
+
+
+@orchestrate.command("complete")
+@click.argument("delegation_id")
+@click.option("-s", "--summary", required=True, help="Result summary")
+@click.option("-f", "--files-created", multiple=True, help="Files created")
+@click.option("-m", "--files-modified", multiple=True, help="Files modified")
+@click.pass_context
+def orchestrate_complete(ctx, delegation_id, summary, files_created, files_modified):
+    """Complete a delegation with results."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+    item = engine.complete_delegation(
+        delegation_id=delegation_id,
+        result_summary=summary,
+        files_created=list(files_created) if files_created else None,
+        files_modified=list(files_modified) if files_modified else None,
+    )
+
+    if not item:
+        console.print(f"[red]Active delegation not found: {delegation_id}[/red]")
+        console.print("[dim]Run 'claude-harness orchestrate status' to see active delegations.[/dim]")
+        return
+
+    console.print()
+    console.print(f"[green]Completed delegation: {item.id}[/green]")
+    console.print(f"  Subtask: {item.subtask_name}")
+    console.print(f"  Summary: {summary}")
+
+    if item.files_created:
+        console.print(f"  Files created: {len(item.files_created)}")
+        for f in item.files_created[:5]:
+            console.print(f"    - {f}")
+
+    if item.files_modified:
+        console.print(f"  Files modified: {len(item.files_modified)}")
+        for f in item.files_modified[:5]:
+            console.print(f"    - {f}")
+
+    console.print(f"  Tokens saved: ~{item.estimated_tokens_saved:,}")
+    console.print()
+
+    # Show updated metrics
+    status = engine.get_status()
+    metrics = status.get("metrics", {})
+    console.print("[dim]Session totals:[/dim]")
+    console.print(f"  Completed: {metrics.get('completed_delegations', 0)}")
+    console.print(f"  Total tokens saved: {metrics.get('total_tokens_saved', 0):,}")
+    console.print()
+
+
+@orchestrate.command("reset")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def orchestrate_reset(ctx, yes):
+    """Reset orchestration session."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+
+    # Get current status for confirmation
+    status = engine.get_status()
+    metrics = status.get("metrics", {})
+
+    if not yes:
+        console.print("[yellow]This will reset:[/yellow]")
+        console.print(f"  - {metrics.get('total_delegations', 0)} total delegations")
+        console.print(f"  - {metrics.get('completed_delegations', 0)} completed delegations")
+        console.print(f"  - {metrics.get('total_tokens_saved', 0):,} tokens saved tracking")
+        console.print("  - All queued and active delegations")
+        console.print()
+        if not click.confirm("Continue?", default=False):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    engine.reset_session()
+    console.print("[green]Orchestration session reset.[/green]")
 
 
 if __name__ == "__main__":

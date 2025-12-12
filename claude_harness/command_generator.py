@@ -522,6 +522,124 @@ claude-harness --help
 
 Also list all `/harness-*` slash commands available in this project."""
     },
+
+    # ========== ORCHESTRATION ==========
+    "harness-orchestrate": {
+        "description": "Evaluate and suggest automatic task delegation",
+        "content": """Evaluate if tasks should be delegated to subagents for context optimization.
+
+Run:
+```bash
+claude-harness orchestrate evaluate
+```
+
+If delegation is recommended, generate the queue:
+```bash
+claude-harness orchestrate queue
+```
+
+Show me which subtasks can be delegated and the estimated token savings."""
+    },
+
+    "harness-orchestrate-status": {
+        "description": "Show orchestration status and metrics",
+        "content": """Show the current orchestration status.
+
+Run:
+```bash
+claude-harness orchestrate status
+```
+
+Display: state, active delegations, completed count, tokens saved."""
+    },
+
+    "harness-orchestrate-queue": {
+        "description": "Generate delegation queue for current feature",
+        "content": """Generate a delegation queue for the current feature.
+
+Run:
+```bash
+claude-harness orchestrate queue
+```
+
+Arguments (optional feature ID): $ARGUMENTS"""
+    },
+
+    # ========== OPTIMIZATION ==========
+    "harness-optimize": {
+        "description": "Show context optimization status",
+        "content": """Show context optimization status and potential savings.
+
+Run:
+```bash
+claude-harness optimize status
+```
+
+Display: filter stats, cache stats, compression potential, total savings estimate."""
+    },
+
+    "harness-optimize-filter": {
+        "description": "Show which files would be tracked/skipped",
+        "content": """Filter files to see which would be tracked vs skipped.
+
+Run on current directory:
+```bash
+claude-harness optimize filter -d .
+```
+
+Or on specific files: $ARGUMENTS"""
+    },
+
+    "harness-optimize-prune": {
+        "description": "Prune stale context references",
+        "content": """Remove stale file references from context tracking.
+
+Run:
+```bash
+claude-harness optimize prune
+```
+
+This frees up token budget by removing old file references."""
+    },
+
+    "harness-optimize-cache": {
+        "description": "Show exploration cache status",
+        "content": """List cached exploration results.
+
+Run:
+```bash
+claude-harness optimize cache
+```
+
+Show what's cached and potential token savings from reuse."""
+    },
+
+    "harness-optimize-cache-clear": {
+        "description": "Clear exploration cache",
+        "content": """Clear the exploration cache.
+
+To clear only expired entries:
+```bash
+claude-harness optimize cache-clear --expired-only
+```
+
+To clear everything:
+```bash
+claude-harness optimize cache-clear -y
+```"""
+    },
+
+    "harness-optimize-summary": {
+        "description": "Show compact context summary",
+        "content": """Show a compact one-line context summary.
+
+Run:
+```bash
+claude-harness optimize summary
+```
+
+Great for quick status checks."""
+    },
 }
 
 
