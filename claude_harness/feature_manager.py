@@ -9,7 +9,7 @@ Manages the features.json file with operations:
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from dataclasses import dataclass, field
 
@@ -54,7 +54,7 @@ class Feature:
 
     def __post_init__(self):
         if not self.created_at:
-            self.created_at = datetime.utcnow().isoformat()
+            self.created_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {
@@ -248,7 +248,7 @@ class FeatureManager:
         feature_dict["status"] = status
 
         if status == "completed":
-            feature_dict["completed_at"] = datetime.utcnow().isoformat()
+            feature_dict["completed_at"] = datetime.now(timezone.utc).isoformat()
             data["completed"].append(feature_dict)
         elif status == "blocked":
             feature_dict["blocked_reason"] = blocked_reason

@@ -13,7 +13,7 @@ The goal is to provide awareness and help optimize context usage.
 import json
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 
@@ -65,7 +65,7 @@ class ContextMetrics:
 
     def __post_init__(self):
         if not self.session_start:
-            self.session_start = datetime.utcnow().isoformat()
+            self.session_start = datetime.now(timezone.utc).isoformat()
 
     @property
     def context_usage_percent(self) -> float:
@@ -302,7 +302,7 @@ class ContextTracker:
 
         if task_id not in metrics.task_metrics:
             metrics.task_metrics[task_id] = {
-                "started_at": datetime.utcnow().isoformat(),
+                "started_at": datetime.now(timezone.utc).isoformat(),
                 "files_read": 0,
                 "files_written": 0,
                 "commands": 0,
@@ -319,7 +319,7 @@ class ContextTracker:
         metrics = self._load_metrics()
 
         if task_id in metrics.task_metrics:
-            metrics.task_metrics[task_id]["ended_at"] = datetime.utcnow().isoformat()
+            metrics.task_metrics[task_id]["ended_at"] = datetime.now(timezone.utc).isoformat()
 
         if metrics.current_task_id == task_id:
             metrics.current_task_id = None
@@ -547,7 +547,7 @@ class ContextTracker:
         lines = [
             "# Session Summary",
             "",
-            f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
             "",
             "## Context Usage",
             f"- Tokens used: {metrics.estimated_total_tokens:,} / {metrics.context_budget:,} ({metrics.context_usage_percent:.1f}%)",
@@ -649,7 +649,7 @@ class ContextTracker:
             "",
             "**Purpose:** Continue work in a new Claude Code session",
             "",
-            f"**Generated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+            f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
             "",
             "---",
             "",
@@ -725,7 +725,7 @@ class ContextTracker:
             Path to saved file
         """
         if filename is None:
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
             filename = f"handoff_{timestamp}.md"
 
         handoff_dir = self.project_path / ".claude-harness" / "session-history"

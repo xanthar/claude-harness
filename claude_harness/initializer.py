@@ -711,11 +711,11 @@ class Initializer:
         """Write progress.md."""
         progress_path = self.project_path / ".claude-harness" / "progress.md"
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         content = f"""# Session Progress Log
 
-## Last Session: {datetime.utcnow().strftime("%Y-%m-%d %H:%M")} UTC
+## Last Session: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")} UTC
 
 ### Completed This Session
 - [x] Initialized Claude Harness

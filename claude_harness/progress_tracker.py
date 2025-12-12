@@ -10,7 +10,7 @@ Manages the progress.md file to maintain context between sessions:
 
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from dataclasses import dataclass, field
 
@@ -36,7 +36,7 @@ class SessionProgress:
 
     def __post_init__(self):
         if not self.session_date:
-            self.session_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+            self.session_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
 
 class ProgressTracker:
@@ -214,7 +214,7 @@ class ProgressTracker:
 
         # Create new progress
         new_progress = SessionProgress(
-            session_date=datetime.utcnow().strftime("%Y-%m-%d %H:%M") + " UTC",
+            session_date=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M") + " UTC",
             completed=completed if completed is not None else current.completed,
             in_progress=in_progress if in_progress is not None else current.in_progress,
             blockers=blockers if blockers is not None else current.blockers,
