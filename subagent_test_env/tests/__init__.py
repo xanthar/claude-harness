@@ -1,1 +1,1 @@
-"""Test package for calculator."""
+"""Test package for task API."""
