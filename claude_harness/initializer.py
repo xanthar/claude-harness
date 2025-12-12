@@ -85,6 +85,9 @@ class HarnessConfig:
     context_critical_threshold: float = 0.9  # Critical at 90%
     show_context_in_status: bool = True  # Show in status output
 
+    # Claude Code Integration
+    create_claude_hooks: bool = False  # Auto-create .claude/settings.json with hooks
+
     # Features
     initial_phase: str = "Phase 1"
     initial_features: list = field(default_factory=list)
@@ -364,6 +367,9 @@ class Initializer:
         # Initial features (optional)
         self._ask_initial_features()
 
+        # Claude Code hooks
+        self._ask_claude_hooks()
+
     def _ask_language(self):
         """Ask for programming language."""
         choice = questionary.select(
@@ -611,6 +617,23 @@ class Initializer:
 
             self.config.initial_features = features
 
+    def _ask_claude_hooks(self):
+        """Ask about auto-creating Claude Code hooks configuration."""
+        console.print("\n[bold]Claude Code Hooks[/bold]")
+        console.print(
+            "[dim]Hooks integrate with Claude Code for automatic tracking and safety enforcement.[/dim]"
+        )
+
+        self.config.create_claude_hooks = questionary.confirm(
+            "Auto-create .claude/settings.json with harness hooks?",
+            default=True,
+        ).ask()
+
+        if self.config.create_claude_hooks:
+            console.print(
+                "[dim]  Will create hooks for: git safety, context tracking, activity logging[/dim]"
+            )
+
     def _generate_files(self):
         """Generate all harness files."""
         console.print("\n[yellow]Generating harness files...[/yellow]")
@@ -649,6 +672,10 @@ class Initializer:
 
         # Update/create CLAUDE.md
         self._update_claude_md()
+
+        # Create Claude Code settings with hooks if requested
+        if self.config.create_claude_hooks:
+            self._write_claude_settings()
 
         # Generate E2E setup if enabled
         if self.config.e2e_enabled:
@@ -1329,6 +1356,93 @@ echo "[$(date -Iseconds)] $TOOL_NAME: ${TOOL_INPUT:0:200}" >> "$LOG_FILE"
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/check-git-safety.sh")
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/log-activity.sh")
 
+    def _write_claude_settings(self):
+        """Write Claude Code settings.json with harness hooks."""
+        claude_dir = self.project_path / ".claude"
+        claude_dir.mkdir(exist_ok=True)
+
+        settings_path = claude_dir / "settings.json"
+
+        hooks_config = {
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "command": "[ -f .claude-harness/hooks/check-git-safety.sh ] && .claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\"",
+                    }
+                ],
+                "PostToolUse": [
+                    {
+                        "matcher": "Read",
+                        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" $(wc -c < \"$TOOL_INPUT\" 2>/dev/null || echo 1000)",
+                    },
+                    {
+                        "matcher": "Write",
+                        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" 1000 --write",
+                    },
+                    {
+                        "matcher": "Bash",
+                        "command": "[ -f .claude-harness/hooks/log-activity.sh ] && .claude-harness/hooks/log-activity.sh \"Bash\" \"$TOOL_INPUT\"",
+                    },
+                ],
+                "Stop": [
+                    {
+                        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; echo '---'; echo 'Remember to update progress.md!')",
+                    }
+                ],
+            },
+            "permissions": {
+                "allow": [
+                    "Bash(claude-harness:*)",
+                ]
+            },
+        }
+
+        if settings_path.exists():
+            # Merge with existing settings
+            try:
+                existing = json.loads(settings_path.read_text())
+
+                # Merge hooks - add our hooks to existing
+                if "hooks" not in existing:
+                    existing["hooks"] = {}
+
+                for hook_type, hook_list in hooks_config["hooks"].items():
+                    if hook_type not in existing["hooks"]:
+                        existing["hooks"][hook_type] = []
+                    # Add our hooks if not already present
+                    for hook in hook_list:
+                        if hook not in existing["hooks"][hook_type]:
+                            existing["hooks"][hook_type].append(hook)
+
+                # Merge permissions
+                if "permissions" not in existing:
+                    existing["permissions"] = {}
+                if "allow" not in existing["permissions"]:
+                    existing["permissions"]["allow"] = []
+                for perm in hooks_config["permissions"]["allow"]:
+                    if perm not in existing["permissions"]["allow"]:
+                        existing["permissions"]["allow"].append(perm)
+
+                with open(settings_path, "w") as f:
+                    json.dump(existing, f, indent=2)
+
+                console.print(
+                    f"  [green]Updated:[/green] .claude/settings.json (merged with existing)"
+                )
+            except json.JSONDecodeError:
+                console.print(
+                    f"  [yellow]Warning:[/yellow] .claude/settings.json exists but is invalid JSON"
+                )
+                console.print(
+                    f"  [yellow]Skipping hooks config - please add manually from docs/HOOKS.md[/yellow]"
+                )
+        else:
+            # Create new settings file
+            with open(settings_path, "w") as f:
+                json.dump(hooks_config, f, indent=2)
+            console.print(f"  [green]Created:[/green] .claude/settings.json")
+
     def _update_claude_md(self):
         """Update or create CLAUDE.md with harness integration."""
         claude_dir = self.project_path / ".claude"
@@ -1537,6 +1651,10 @@ addopts = -v --tb=short
         console.print("  .claude-harness/hooks/log-activity.sh")
         console.print("  .claude/CLAUDE.md (created or updated)")
         console.print("  scripts/init.sh")
+        console.print("  scripts/init.ps1")
+
+        if self.config.create_claude_hooks:
+            console.print("  .claude/settings.json (Claude Code hooks)")
 
         if self.config.e2e_enabled:
             console.print("  e2e/conftest.py")

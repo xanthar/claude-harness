@@ -13,10 +13,12 @@ A comprehensive harness that optimizes Claude Code sessions by addressing the fo
 
 - **Session Continuity**: `progress.md` maintains context between sessions
 - **Feature Management**: Track features/tasks with status, subtasks, and E2E validation
-- **Context Tracking**: Monitor estimated token usage and context budget (NEW!)
+- **Context Tracking**: Monitor estimated token usage and context budget
 - **Startup Ritual**: `init.sh` (Bash) and `init.ps1` (PowerShell) scripts
 - **Git Safety Hooks**: Block dangerous operations (commits to main, force pushes)
+- **Auto-Hooks Setup**: Optionally create `.claude/settings.json` with hooks during init
 - **E2E Testing**: Playwright integration with test generation
+- **MCP Server**: Playwright browser automation via Model Context Protocol
 - **Stack Detection**: Automatically detects your project's language, framework, database
 
 ## Installation
@@ -46,9 +48,10 @@ The initializer will:
 1. Detect your project stack (language, framework, database)
 2. Ask configuration questions
 3. Generate harness files in `.claude-harness/`
-4. Create `scripts/init.sh` startup script
+4. Create `scripts/init.sh` and `scripts/init.ps1` startup scripts
 5. Set up E2E testing structure
 6. Update/create `.claude/CLAUDE.md`
+7. Optionally create `.claude/settings.json` with hooks
 
 ### Start a session
 
@@ -119,6 +122,51 @@ claude-harness e2e run
 claude-harness e2e run --headed  # Visible browser
 ```
 
+### MCP Server (Playwright)
+
+Claude Harness includes an MCP server for browser automation, allowing Claude Code to interact with web applications directly.
+
+**Setup for Claude Desktop:**
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "python",
+      "args": ["-m", "claude_harness.mcp.playwright_server"]
+    }
+  }
+}
+```
+
+**Available Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `browser_launch` | Launch browser (chromium/firefox/webkit) |
+| `browser_navigate` | Navigate to URL |
+| `browser_click` | Click elements |
+| `browser_fill` | Fill form inputs |
+| `browser_type` | Type with keystroke simulation |
+| `browser_screenshot` | Take screenshots |
+| `browser_get_text` | Get element text |
+| `browser_wait` | Wait for elements |
+| `browser_evaluate` | Run JavaScript |
+| `browser_select` | Select dropdown options |
+| `browser_check` | Check checkboxes |
+| `browser_press` | Press keyboard keys |
+| `browser_close` | Close browser |
+| `browser_content` | Get page HTML |
+| `browser_query_all` | Query multiple elements |
+
+**Run standalone:**
+
+```bash
+python -m claude_harness.mcp.playwright_server
+```
+
 ### Context Tracking
 
 Monitor estimated token usage to avoid running out of context:
@@ -151,9 +199,16 @@ The status command also shows compact context usage:
 
 ### Hooks Setup
 
-Configure Claude Code hooks for automatic tracking and safety. See [docs/HOOKS.md](docs/HOOKS.md) for detailed setup.
+Claude Code hooks enable automatic tracking and safety enforcement. During `claude-harness init`, you'll be asked if you want to auto-create `.claude/settings.json` with recommended hooks.
 
-Quick setup - add to `.claude/settings.json`:
+**Auto-created hooks include:**
+- **PreToolUse**: Git safety checks (block commits to protected branches)
+- **PostToolUse**: Context tracking (file reads/writes), activity logging
+- **Stop**: Show context summary and reminder to update progress
+
+See [docs/HOOKS.md](docs/HOOKS.md) for detailed manual setup and customization.
+
+**Manual setup** - add to `.claude/settings.json`:
 
 ```json
 {
@@ -161,7 +216,18 @@ Quick setup - add to `.claude/settings.json`:
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "command": ".claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\""
+        "command": "[ -f .claude-harness/hooks/check-git-safety.sh ] && .claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\""
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" $(wc -c < \"$TOOL_INPUT\" 2>/dev/null || echo 1000)"
+      }
+    ],
+    "Stop": [
+      {
+        "command": "[ -f .claude-harness/config.json ] && claude-harness context show"
       }
     ]
   }
@@ -173,7 +239,8 @@ Quick setup - add to `.claude/settings.json`:
 ```
 your-project/
 ├── .claude/
-│   └── CLAUDE.md              # Enhanced with harness integration
+│   ├── CLAUDE.md              # Enhanced with harness integration
+│   └── settings.json          # Claude Code hooks (optional)
 ├── .claude-harness/
 │   ├── config.json            # Project configuration
 │   ├── features.json          # Feature/task tracking
