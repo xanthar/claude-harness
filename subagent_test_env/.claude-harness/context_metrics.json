@@ -1,0 +1,21 @@
+{
+  "session_start": "2025-12-12T19:52:16.680075+00:00",
+  "session_duration_minutes": 4.323323567708333e-06,
+  "files_read": [],
+  "files_read_chars": 0,
+  "files_written": [
+    "calculator/scientific.py"
+  ],
+  "files_written_chars": 500,
+  "commands_executed": 0,
+  "tool_calls": 1,
+  "estimated_input_tokens": 0,
+  "estimated_output_tokens": 142,
+  "estimated_total_tokens": 142,
+  "context_budget": 100000,
+  "context_usage_percent": 0.1,
+  "remaining_tokens": 99858,
+  "status": "ok",
+  "current_task_id": null,
+  "task_metrics": {}
+}

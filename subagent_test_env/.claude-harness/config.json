@@ -1,0 +1,64 @@
+{
+  "project_name": "subagent_test_env",
+  "project_description": "",
+  "stack": {
+    "language": "python",
+    "language_version": "3.11+",
+    "framework": null,
+    "database": null,
+    "orm": null
+  },
+  "paths": {
+    "source": ".",
+    "backend": null,
+    "venv": "venv",
+    "env_file": ".env",
+    "tests": "tests"
+  },
+  "startup": {
+    "port": 8000,
+    "health_endpoint": "/health",
+    "start_command": "python main.py",
+    "pre_checks": [
+      "venv_active",
+      "db_connected"
+    ]
+  },
+  "git": {
+    "protected_branches": [
+      "main",
+      "master"
+    ],
+    "branch_prefixes": [
+      "feat/",
+      "fix/",
+      "chore/",
+      "docs/",
+      "refactor/"
+    ],
+    "require_merge_confirmation": true
+  },
+  "testing": {
+    "framework": "pytest",
+    "unit_command": "pytest tests/unit/ -v",
+    "e2e_command": "pytest e2e/ -v",
+    "coverage_threshold": 80
+  },
+  "blocked_actions": [
+    "commit_to_protected_branch",
+    "push_to_protected_branch_without_confirmation",
+    "delete_backup_branches"
+  ],
+  "e2e": {
+    "enabled": true,
+    "base_url": "http://localhost:8000",
+    "browser": "chromium"
+  },
+  "context_tracking": {
+    "enabled": true,
+    "budget": 100000,
+    "warning_threshold": 0.7,
+    "critical_threshold": 0.9,
+    "show_in_status": true
+  }
+}
