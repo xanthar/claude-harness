@@ -776,8 +776,13 @@ class Initializer:
         self._write_slash_commands()
 
     def _write_config(self):
-        """Write config.json."""
+        """Write config.json, preserving existing if present."""
         config_path = self.project_path / ".claude-harness" / "config.json"
+
+        if config_path.exists():
+            console.print(f"  [blue]Preserved:[/blue] .claude-harness/config.json (existing data kept)")
+            return
+
         config_data = self.config.to_dict()
 
         with open(config_path, "w") as f:
@@ -786,8 +791,12 @@ class Initializer:
         console.print(f"  [green]Created:[/green] .claude-harness/config.json")
 
     def _write_features(self):
-        """Write features.json."""
+        """Write features.json, preserving existing if present."""
         features_path = self.project_path / ".claude-harness" / "features.json"
+
+        if features_path.exists():
+            console.print(f"  [blue]Preserved:[/blue] .claude-harness/features.json (existing data kept)")
+            return
 
         features_data = {
             "current_phase": self.config.initial_phase,
@@ -802,8 +811,12 @@ class Initializer:
         console.print(f"  [green]Created:[/green] .claude-harness/features.json")
 
     def _write_progress(self):
-        """Write progress.md."""
+        """Write progress.md, preserving existing if present."""
         progress_path = self.project_path / ".claude-harness" / "progress.md"
+
+        if progress_path.exists():
+            console.print(f"  [blue]Preserved:[/blue] .claude-harness/progress.md (existing data kept)")
+            return
 
         from datetime import datetime, timezone
 
@@ -1506,7 +1519,7 @@ claude-harness progress file "$FILE_PATH" 2>/dev/null || true
 # Also track in context (estimate tokens for content written)
 CONTENT_LENGTH=$(echo "$INPUT_JSON" | jq -r '.tool_input.content // empty' 2>/dev/null | wc -c)
 if [ "$CONTENT_LENGTH" -gt 0 ]; then
-    claude-harness context track-file "$FILE_PATH" "$CONTENT_LENGTH" 2>/dev/null || true
+    claude-harness context track-file "$FILE_PATH" "$CONTENT_LENGTH" --write 2>/dev/null || true
 fi
 
 exit 0
@@ -1548,7 +1561,7 @@ OLD_LEN=$(echo "$INPUT_JSON" | jq -r '.tool_input.old_string // empty' 2>/dev/nu
 NEW_LEN=$(echo "$INPUT_JSON" | jq -r '.tool_input.new_string // empty' 2>/dev/null | wc -c)
 TOTAL_LEN=$((OLD_LEN + NEW_LEN))
 if [ "$TOTAL_LEN" -gt 0 ]; then
-    claude-harness context track-file "$FILE_PATH" "$TOTAL_LEN" 2>/dev/null || true
+    claude-harness context track-file "$FILE_PATH" "$TOTAL_LEN" --write 2>/dev/null || true
 fi
 
 exit 0

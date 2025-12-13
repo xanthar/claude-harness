@@ -527,6 +527,45 @@ class TestInitializerEdgeCases:
         # Old file should still exist
         assert (harness_dir / "old_file.txt").exists()
 
+    def test_preserve_existing_harness_data(self, tmp_path):
+        """Test that reinit preserves existing features.json, config.json, progress.md."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+
+        # Create existing harness data with custom content
+        existing_features = {
+            "current_phase": "Phase 3",
+            "features": [{"id": "F001", "name": "Test Feature", "status": "completed"}],
+            "completed": [{"id": "F000", "name": "Done Feature"}],
+            "blocked": [],
+        }
+        (harness_dir / "features.json").write_text(json.dumps(existing_features))
+
+        existing_config = {"project_name": "my-existing-project", "custom_setting": True}
+        (harness_dir / "config.json").write_text(json.dumps(existing_config))
+
+        existing_progress = "# My Custom Progress\n\n- Important notes here"
+        (harness_dir / "progress.md").write_text(existing_progress)
+
+        # Run initialization
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(project_name="new-project")
+        init._generate_files()
+
+        # Verify existing data was preserved (not overwritten)
+        features_data = json.loads((harness_dir / "features.json").read_text())
+        assert features_data["current_phase"] == "Phase 3"
+        assert len(features_data["features"]) == 1
+        assert features_data["features"][0]["name"] == "Test Feature"
+
+        config_data = json.loads((harness_dir / "config.json").read_text())
+        assert config_data["project_name"] == "my-existing-project"
+        assert config_data.get("custom_setting") is True
+
+        progress_content = (harness_dir / "progress.md").read_text()
+        assert "My Custom Progress" in progress_content
+        assert "Important notes here" in progress_content
+
     def test_special_characters_in_project_name(self, tmp_path):
         """Test project name with special characters."""
         init = Initializer(str(tmp_path))
