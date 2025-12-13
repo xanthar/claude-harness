@@ -1642,6 +1642,11 @@ exit 0
         """
         # Common permissions for all projects
         permissions = [
+            # Harness file operations (allow editing harness files without prompts)
+            "Edit(.claude-harness/**)",
+            "Write(.claude-harness/**)",
+            "Read(.claude-harness/**)",
+
             # Harness commands
             "Bash(claude-harness:*)",
             "Bash(.claude-harness/hooks/*:*)",
