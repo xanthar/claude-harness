@@ -457,8 +457,15 @@ class ContextTracker:
             color = "green"
             icon = " * "
 
+        # Show compaction indicator if over 100%
+        if usage > 100:
+            est_compactions = int(usage // 100)
+            compaction_note = f" (~{est_compactions} compaction{'s' if est_compactions > 1 else ''}) "
+        else:
+            compaction_note = " "
+
         console.print(
-            f"[{color}][{icon}] Context: {usage:.1f}% used | "
+            f"[{color}][{icon}] Context: {usage:.1f}% used{compaction_note}| "
             f"~{remaining:,} tokens remaining | "
             f"{len(metrics.files_read)} files read | "
             f"{metrics.commands_executed} commands[/{color}]"
@@ -468,8 +475,17 @@ class ContextTracker:
         """Show full status panel."""
         usage = metrics.context_usage_percent
 
-        # Status color
-        if metrics.status == "critical":
+        # Calculate estimated compactions if over 100%
+        est_compactions = int(usage // 100) if usage > 100 else 0
+        compaction_info = ""
+        if est_compactions > 0:
+            compaction_info = f"\nEstimated compactions: ~{est_compactions}"
+
+        # Status color and text
+        if usage > 100:
+            status_color = "red"
+            status_text = f"OVERFLOW ({usage:.0f}%) - New session recommended{compaction_info}"
+        elif metrics.status == "critical":
             status_color = "red"
             status_text = "CRITICAL - Consider compacting or starting new session"
         elif metrics.status == "warning":
@@ -488,16 +504,18 @@ class ContextTracker:
             )
         )
 
-        # Progress bar
+        # Progress bar (cap at 100 for display)
+        display_usage = min(usage, 100)
+        usage_text = f"{usage:.1f}%" if usage <= 100 else f"{usage:.1f}% (overflow)"
         with Progress(
             TextColumn("[bold blue]Context"),
             BarColumn(bar_width=40),
-            TextColumn(f"{usage:.1f}%"),
+            TextColumn(usage_text),
             console=console,
             transient=True,
         ) as progress:
             task = progress.add_task("", total=100)
-            progress.update(task, completed=min(usage, 100))
+            progress.update(task, completed=display_usage)
 
         # Metrics table
         table = Table(show_header=False, box=None)
@@ -507,7 +525,10 @@ class ContextTracker:
         table.add_row("Estimated Total Tokens", f"{metrics.estimated_total_tokens:,}")
         table.add_row("Context Budget", f"{metrics.context_budget:,}")
         table.add_row("Remaining", f"{metrics.remaining_tokens:,}")
+        if est_compactions > 0:
+            table.add_row("Est. Compactions", f"~{est_compactions}")
         table.add_row("", "")
+        table.add_row("Session ID", metrics.session_id)
         table.add_row("Files Read", f"{len(metrics.files_read)}")
         table.add_row("Files Written", f"{len(metrics.files_written)}")
         table.add_row("Commands Executed", str(metrics.commands_executed))
