@@ -182,6 +182,9 @@ def refresh(ctx, path: str):
             initializer._write_init_powershell()
             console.print("  [green]Refreshed:[/green] scripts/init.ps1")
 
+        # Update .gitignore for session files
+        initializer._update_gitignore()
+
         console.print("\n[green]Harness scripts refreshed successfully![/green]")
         console.print("[dim]Data files (features.json, progress.md, config.json) were preserved.[/dim]")
 

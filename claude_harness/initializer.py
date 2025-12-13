@@ -761,6 +761,9 @@ class Initializer:
         # Generate hooks
         self._write_hooks()
 
+        # Update .gitignore for session files
+        self._update_gitignore()
+
         # Update/create CLAUDE.md
         self._update_claude_md()
 
@@ -1750,6 +1753,39 @@ exit 0
         permissions.append("Skill(write-unit-tests)")
 
         return permissions
+
+    def _update_gitignore(self):
+        """Update .gitignore to exclude session-specific harness files.
+
+        These files change every session and shouldn't be committed:
+        - context_metrics.json (session tracking)
+        - session-history/ (archived sessions)
+        - discoveries.json (session discoveries)
+        """
+        gitignore_path = self.project_path / ".gitignore"
+
+        # Entries to add
+        harness_ignores = [
+            "",
+            "# Claude Harness - session-specific files",
+            ".claude-harness/context_metrics.json",
+            ".claude-harness/session-history/",
+            ".claude-harness/discoveries.json",
+        ]
+
+        existing_content = ""
+        if gitignore_path.exists():
+            existing_content = gitignore_path.read_text()
+
+        # Check if already present
+        if ".claude-harness/context_metrics.json" in existing_content:
+            console.print(f"  [blue]Preserved:[/blue] .gitignore (harness entries exist)")
+            return
+
+        # Append harness ignores
+        new_content = existing_content.rstrip() + "\n" + "\n".join(harness_ignores) + "\n"
+        gitignore_path.write_text(new_content)
+        console.print(f"  [green]Updated:[/green] .gitignore (added harness session files)")
 
     def _write_claude_settings(self):
         """Write Claude Code settings.local.json with harness hooks.
