@@ -5,6 +5,39 @@ All notable changes to Claude Harness will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-13
+
+### Added
+- **Refresh Command** (`claude-harness refresh`)
+  - Regenerates init.sh, hooks, and init.ps1 without losing data
+  - Use after upgrading claude-harness to get latest script improvements
+  - Automatically updates .gitignore for session files
+  - Untracks already-tracked session files from git
+
+- **Compaction Detection**
+  - Tracks when estimated tokens exceed context budget
+  - Records compaction events with timestamp and metrics
+  - New fields: `peak_tokens`, `compaction_events` in context_metrics.json
+  - Compaction history displayed in `claude-harness context show`
+
+### Changed
+- **init.sh reads config at runtime**
+  - Port, health endpoint, start command now read from config.json using `jq`
+  - Falls back to defaults if `jq` not available
+  - No more hardcoded values that get out of sync
+
+- **Session files automatically gitignored**
+  - `.claude-harness/context_metrics.json`
+  - `.claude-harness/session-history/`
+  - `.claude-harness/discoveries.json`
+  - `.claude-harness/cache/`
+
+### Fixed
+- init/refresh now untracks already-tracked session files (.gitignore only prevents new files)
+- Data preservation on reinit (features.json, progress.md, config.json kept)
+
+---
+
 ## [1.0.0] - 2025-12-12
 
 ### Added

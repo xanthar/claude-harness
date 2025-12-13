@@ -70,6 +70,16 @@ This will:
 - Run quick test check
 - Show session progress and current feature
 
+### Refresh after upgrading
+
+After upgrading claude-harness, refresh your project's scripts:
+
+```bash
+claude-harness refresh
+```
+
+This regenerates init.sh, hooks, and init.ps1 with the latest improvements while preserving your data (features.json, progress.md, config.json).
+
 ### Manage features
 
 ```bash
@@ -462,6 +472,7 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | Command | Description |
 |---------|-------------|
 | `claude-harness init` | Initialize harness in project |
+| `claude-harness refresh` | Refresh scripts without losing data |
 | `claude-harness status` | Show current status |
 | `claude-harness detect` | Preview stack detection |
 | `claude-harness run` | Execute init.sh |
