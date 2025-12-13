@@ -48,13 +48,16 @@ test-results/
 .DS_Store
 Thumbs.db
 
-# Claude Harness (per-project files)
+# Claude Harness (per-project session files)
 .claude-harness/session-history/
 .claude-harness/context_metrics.json
 .claude-harness/discoveries.json
+.claude-harness/cache/
 
-# Test projects (not part of the harness codebase)
+# Test environments (not part of the harness codebase)
+subagent_test_env/
 prompt-template-manager/
+*_test_env/
 
 # Temporary test directories
 /tmp/

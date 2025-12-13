@@ -104,6 +104,95 @@ def init(path: str, non_interactive: bool):
         sys.exit(1)
 
 
+# --- Refresh Command ---
+
+
+@main.command()
+@click.option(
+    "--path",
+    "-p",
+    default=".",
+    help="Project path (default: current directory)",
+)
+@click.pass_context
+def refresh(ctx, path: str):
+    """Refresh harness scripts without losing data.
+
+    Regenerates:
+    - scripts/init.sh (startup script)
+    - .claude-harness/hooks/ (git safety hooks)
+
+    Preserves:
+    - features.json (feature tracking)
+    - progress.md (session progress)
+    - config.json (configuration)
+    - context_metrics.json (context tracking)
+
+    Use this after upgrading claude-harness to get latest script improvements.
+    """
+    from .initializer import Initializer, HarnessConfig
+    import json
+
+    project_path = Path(path).resolve()
+    harness_dir = project_path / ".claude-harness"
+    config_file = harness_dir / "config.json"
+
+    if not harness_dir.exists() or not config_file.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    try:
+        # Load existing config
+        with open(config_file) as f:
+            config_data = json.load(f)
+
+        # Create HarnessConfig from existing data
+        config = HarnessConfig(
+            project_name=config_data.get("project_name", project_path.name),
+            language=config_data.get("stack", {}).get("language", "python"),
+            framework=config_data.get("stack", {}).get("framework"),
+            database=config_data.get("stack", {}).get("database"),
+            test_framework=config_data.get("stack", {}).get("test_framework", "pytest"),
+            venv_path=config_data.get("paths", {}).get("venv", ".venv"),
+            port=config_data.get("startup", {}).get("port", 8000),
+            health_endpoint=config_data.get("startup", {}).get("health_endpoint", "/health"),
+            start_command=config_data.get("startup", {}).get("start_command", "python main.py"),
+            protected_branches=config_data.get("git", {}).get("protected_branches", ["main", "master"]),
+            e2e_enabled=config_data.get("e2e", {}).get("enabled", False),
+            e2e_base_url=config_data.get("e2e", {}).get("base_url", f"http://localhost:{config_data.get('startup', {}).get('port', 8000)}"),
+        )
+
+        # Initialize with existing config
+        initializer = Initializer(str(project_path), config)
+
+        # Only regenerate scripts (not data files)
+        console.print("[blue]Refreshing harness scripts...[/blue]")
+
+        # Regenerate init.sh
+        initializer._write_init_script()
+        console.print("  [green]Refreshed:[/green] scripts/init.sh")
+
+        # Regenerate hooks
+        initializer._write_hooks()
+        console.print("  [green]Refreshed:[/green] .claude-harness/hooks/")
+
+        # Regenerate PowerShell init if on Windows or if it exists
+        ps_init = project_path / "scripts" / "init.ps1"
+        if ps_init.exists() or sys.platform == "win32":
+            initializer._write_init_powershell()
+            console.print("  [green]Refreshed:[/green] scripts/init.ps1")
+
+        # Update .gitignore for session files
+        initializer._update_gitignore()
+
+        console.print("\n[green]Harness scripts refreshed successfully![/green]")
+        console.print("[dim]Data files (features.json, progress.md, config.json) were preserved.[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error refreshing harness: {e}[/red]")
+        sys.exit(1)
+
+
 # --- Status Command ---
 
 
