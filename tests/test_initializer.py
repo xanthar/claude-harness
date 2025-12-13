@@ -253,7 +253,7 @@ class TestInitializerClaudeSettings:
         assert "hooks" in data
         assert "PreToolUse" in data["hooks"]
         assert "PostToolUse" in data["hooks"]
-        assert "Stop" in data["hooks"]
+        assert "SessionEnd" in data["hooks"]
 
     def test_write_claude_settings_merge(self, initializer, temp_project):
         """Test merging with existing .claude/settings.local.json."""
