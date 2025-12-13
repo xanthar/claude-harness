@@ -67,6 +67,8 @@ class ContextMetrics:
 
     # Compaction tracking (estimated)
     estimated_compactions: int = 0
+    peak_tokens: int = 0  # Highest token count observed
+    compaction_events: List[Dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.session_start:
@@ -120,6 +122,8 @@ class ContextMetrics:
             "current_task_id": self.current_task_id,
             "task_metrics": self.task_metrics,
             "estimated_compactions": self.estimated_compactions,
+            "peak_tokens": self.peak_tokens,
+            "compaction_events": self.compaction_events,
         }
 
     @classmethod
@@ -143,6 +147,8 @@ class ContextMetrics:
             current_task_id=data.get("current_task_id"),
             task_metrics=data.get("task_metrics", {}),
             estimated_compactions=data.get("estimated_compactions", 0),
+            peak_tokens=data.get("peak_tokens", 0),
+            compaction_events=data.get("compaction_events", []),
         )
 
 
@@ -244,8 +250,76 @@ class ContextTracker:
         # Update duration
         self._metrics.session_duration_minutes = (time.time() - self._start_time) / 60
 
+        # Check for compaction (context overflow)
+        self._detect_compaction()
+
         with open(self.metrics_file, "w") as f:
             json.dump(self._metrics.to_dict(), f, indent=2)
+
+    def _detect_compaction(self):
+        """Detect when context likely compacted (exceeded 100%).
+
+        Compaction detection strategy:
+        1. Track peak token usage
+        2. When estimated tokens exceed the budget, it indicates a compaction
+           likely occurred or will occur soon
+        3. Record each crossing of the 100% threshold as a compaction event
+
+        Note: This is estimation-based. Claude Code's actual compaction is opaque.
+        """
+        if self._metrics is None:
+            return
+
+        current_tokens = self._metrics.estimated_total_tokens
+        budget = self._metrics.context_budget
+
+        # Update peak if current is higher
+        if current_tokens > self._metrics.peak_tokens:
+            self._metrics.peak_tokens = current_tokens
+
+        # Detect threshold crossing (compaction indicator)
+        # We count a compaction when tokens exceed budget for the first time
+        # or when it exceeds budget * (compactions + 1)
+        compaction_threshold = budget * (self._metrics.estimated_compactions + 1)
+
+        if current_tokens >= compaction_threshold:
+            # Record compaction event
+            self._metrics.estimated_compactions += 1
+            self._metrics.compaction_events.append({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "tokens_at_compaction": current_tokens,
+                "compaction_number": self._metrics.estimated_compactions,
+                "files_read_count": len(self._metrics.files_read),
+                "files_written_count": len(self._metrics.files_written),
+                "commands_count": self._metrics.commands_executed,
+            })
+
+            # Log for activity tracking
+            self._log_compaction_event()
+
+    def _log_compaction_event(self):
+        """Log compaction event to session activity log."""
+        if self._metrics is None:
+            return
+
+        history_dir = self.project_path / ".claude-harness" / "session-history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+
+        log_file = history_dir / f"activity-{datetime.now().strftime('%Y%m%d')}.log"
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+        log_entry = (
+            f"[{timestamp}] COMPACTION #{self._metrics.estimated_compactions} detected | "
+            f"Tokens: {self._metrics.estimated_total_tokens:,} | "
+            f"Peak: {self._metrics.peak_tokens:,} | "
+            f"Files: R={len(self._metrics.files_read)} W={len(self._metrics.files_written)}\n"
+        )
+
+        try:
+            with open(log_file, "a") as f:
+                f.write(log_entry)
+        except IOError:
+            pass  # Fail silently
 
     def _estimate_tokens(self, text: str, is_code: bool = False) -> int:
         """Estimate tokens from text."""
@@ -423,6 +497,8 @@ class ContextTracker:
             "closed": metrics.session_closed,
             "usage_percent": metrics.context_usage_percent,
             "estimated_compactions": metrics.estimated_compactions,
+            "peak_tokens": metrics.peak_tokens,
+            "compaction_events": metrics.compaction_events,
         }
 
     def get_metrics(self) -> ContextMetrics:
@@ -460,10 +536,10 @@ class ContextTracker:
             color = "green"
             icon = " * "
 
-        # Show compaction indicator if over 100%
-        if usage > 100:
-            est_compactions = int(usage // 100)
-            compaction_note = f" (~{est_compactions} compaction{'s' if est_compactions > 1 else ''}) "
+        # Show compaction indicator if any compactions detected
+        compactions = metrics.estimated_compactions
+        if compactions > 0:
+            compaction_note = f" ({compactions} compaction{'s' if compactions > 1 else ''}) "
         else:
             compaction_note = " "
 
@@ -478,11 +554,11 @@ class ContextTracker:
         """Show full status panel."""
         usage = metrics.context_usage_percent
 
-        # Calculate estimated compactions if over 100%
-        est_compactions = int(usage // 100) if usage > 100 else 0
+        # Use tracked compactions, not calculated from usage
+        compactions = metrics.estimated_compactions
         compaction_info = ""
-        if est_compactions > 0:
-            compaction_info = f"\nEstimated compactions: ~{est_compactions}"
+        if compactions > 0:
+            compaction_info = f"\nCompactions detected: {compactions}"
 
         # Status color and text
         if usage > 100:
@@ -528,8 +604,10 @@ class ContextTracker:
         table.add_row("Estimated Total Tokens", f"{metrics.estimated_total_tokens:,}")
         table.add_row("Context Budget", f"{metrics.context_budget:,}")
         table.add_row("Remaining", f"{metrics.remaining_tokens:,}")
-        if est_compactions > 0:
-            table.add_row("Est. Compactions", f"~{est_compactions}")
+        if metrics.peak_tokens > 0:
+            table.add_row("Peak Tokens", f"{metrics.peak_tokens:,}")
+        if compactions > 0:
+            table.add_row("Compactions", str(compactions))
         table.add_row("", "")
         table.add_row("Session ID", metrics.session_id)
         table.add_row("Files Read", f"{len(metrics.files_read)}")
@@ -540,6 +618,35 @@ class ContextTracker:
         table.add_row("Session Duration", f"{metrics.session_duration_minutes:.1f} min")
 
         console.print(table)
+
+        # Compaction history if available
+        if metrics.compaction_events:
+            console.print("\n[bold yellow]Compaction History:[/bold yellow]")
+            compaction_table = Table()
+            compaction_table.add_column("#", style="cyan", justify="right")
+            compaction_table.add_column("Time", style="white")
+            compaction_table.add_column("Tokens", style="yellow", justify="right")
+            compaction_table.add_column("Files R/W", style="dim")
+
+            for event in metrics.compaction_events[-5:]:  # Last 5
+                timestamp = event.get("timestamp", "")
+                if timestamp:
+                    try:
+                        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                        time_str = dt.strftime("%H:%M:%S")
+                    except Exception:
+                        time_str = timestamp[:19]
+                else:
+                    time_str = "?"
+
+                compaction_table.add_row(
+                    str(event.get("compaction_number", "?")),
+                    time_str,
+                    f"{event.get('tokens_at_compaction', 0):,}",
+                    f"{event.get('files_read_count', 0)}/{event.get('files_written_count', 0)}",
+                )
+
+            console.print(compaction_table)
 
         # Task breakdown if available
         if metrics.task_metrics:
