@@ -85,6 +85,8 @@ class HarnessConfig:
     context_warning_threshold: float = 0.7  # Warn at 70%
     context_critical_threshold: float = 0.9  # Critical at 90%
     show_context_in_status: bool = True  # Show in status output
+    auto_reset_session: bool = True  # Reset context on new session
+    auto_save_handoff: bool = True  # Auto-save handoff on session end
 
     # Subagent Delegation
     delegation_enabled: bool = False  # Enable subagent delegation hints
@@ -146,6 +148,8 @@ class HarnessConfig:
                 "warning_threshold": self.context_warning_threshold,
                 "critical_threshold": self.context_critical_threshold,
                 "show_in_status": self.show_context_in_status,
+                "auto_reset_session": self.auto_reset_session,
+                "auto_save_handoff": self.auto_save_handoff,
             },
             "delegation": {
                 "enabled": self.delegation_enabled,
@@ -1577,10 +1581,10 @@ exit 0
             f.write(activity_logger)
         os.chmod(logger_path, 0o755)
 
-        # Session stop hook - shows summary
+        # Session stop hook - shows summary, saves handoff, marks session closed
         session_stop = '''#!/bin/bash
 # Claude Harness - Session Stop Hook
-# Shows context and progress summary when Claude stops
+# Shows summary, saves handoff, and marks session closed when Claude stops
 
 [ -f ".claude-harness/config.json" ] || exit 0
 
@@ -1590,6 +1594,18 @@ claude-harness context show 2>/dev/null || true
 echo "---"
 claude-harness progress show 2>/dev/null || true
 echo "======================="
+
+# Check if auto_save_handoff is enabled (default: true)
+AUTO_HANDOFF=$(cat .claude-harness/config.json 2>/dev/null | grep -o '"auto_save_handoff"[[:space:]]*:[[:space:]]*false' || echo "")
+if [ -z "$AUTO_HANDOFF" ]; then
+    # Auto-save handoff document
+    echo ""
+    echo "Saving session handoff..."
+    claude-harness context handoff --save 2>/dev/null || true
+fi
+
+# Mark session as closed for clean restart
+claude-harness context session-close 2>/dev/null || true
 
 exit 0
 '''
