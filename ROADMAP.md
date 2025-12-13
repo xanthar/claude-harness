@@ -6,45 +6,38 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ---
 
-## Version 1.1.0 - Usability Improvements
+## Version 1.2.0 - History Import & Bootstrapping
 
 **Target:** Next minor release
-**Focus:** Enhanced feature management and CLI usability
+**Focus:** Import existing work into harness for established codebases
 
 ### High Priority
 
-#### 1. Feature Info Command
-- [x] `claude-harness feature info <ID>` - Show detailed feature information
-- Display all subtasks with status
-- Show creation date, time in status
-- Display notes and blocked reason history
+#### 1. Bootstrap Command
+- [ ] `claude-harness bootstrap` - Import existing work into features.json
+- Scan CHANGELOG.md for past releases/features
+- Parse git tags/commits for feature history
+- Interactive mode to confirm/edit detected features
 
-#### 2. Subtask Name-Based Completion
-- [x] `claude-harness feature done <ID> <subtask-name>` - Complete subtask by name
-- Fuzzy matching for partial names
-- Confirmation prompt if multiple matches
+#### 2. Import from Documentation
+- [ ] `claude-harness import --from docs/` - Scan documentation for features
+- Parse README, feature specs, architecture docs
+- Extract completed work items as features
 
-#### 3. Feature Notes Command
-- [x] `claude-harness feature note <ID> "note text"` - Add notes to features
-- Timestamped notes
-- View notes in feature info
+#### 3. Git History Analysis
+- [ ] `claude-harness import --from git` - Analyze git history
+- Parse conventional commit messages (feat:, fix:, etc.)
+- Group by release tags
+- Generate feature entries with completion dates
 
-### Medium Priority
+#### 4. Manual Backfill Helper
+- [ ] `claude-harness feature add-completed "Feature Name" --date 2025-01-01`
+- Bulk import from CSV/JSON
+- Template for manual backfill
 
-#### 4. Progress History Command
-- [x] `claude-harness progress history` - View previous sessions
-- List archived sessions with summaries
-- `--limit N` to show last N sessions
-- `--show <index>` to view specific session details
+### Problem This Solves
 
-#### 5. Enhanced Feature Filtering
-- [x] `claude-harness feature list --status blocked` - Already exists, document better
-- [x] `claude-harness feature list --priority 1` - Filter by priority
-- [x] `claude-harness feature list --search "auth"` - Search in names
-
-#### 6. Bulk Operations
-- [x] `claude-harness feature start F-001 F-002` - Start multiple (with warning)
-- [x] `claude-harness feature block F-001 F-002 -r "reason"` - Block multiple
+When initializing harness on an existing codebase (e.g., a project with 20+ completed features), `features.json` starts empty. All past work is "invisible" to the harness. These commands allow importing historical work for complete tracking.
 
 ---
 
@@ -169,6 +162,13 @@ See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the f
 
 ## Completed Features
 
+### v1.1.0 (2025-12-13)
+- [x] Refresh command (`claude-harness refresh`) - Regenerate scripts without losing data
+- [x] Compaction detection in context tracker (peak_tokens, compaction_events)
+- [x] Runtime config reading in init.sh (jq-based, no more hardcoded values)
+- [x] Auto gitignore/untrack session files (context_metrics.json, session-history/)
+- [x] Data preservation on reinit (features.json, progress.md, config.json kept)
+
 ### v1.4.0 (2025-12-12)
 - [x] 35 slash commands for Claude Code integration
 - [x] `/harness-init` - Interactive initialization inside Claude Code
@@ -228,4 +228,4 @@ Found an issue or have a suggestion?
 
 ---
 
-*Last updated: 2025-12-12*
+*Last updated: 2025-12-13*

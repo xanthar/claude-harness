@@ -546,6 +546,44 @@ The harness enforces these principles:
 4. **Clean repo always** - Every session ends with a commit
 5. **Context is king** - Progress.md ensures no context is lost
 
+## Comparison with Sequential Thinking MCP
+
+Claude Harness and the [Sequential Thinking MCP Server](https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking) serve different purposes and can be used together:
+
+| Aspect | **Claude Harness** | **Sequential Thinking MCP** |
+|--------|-------------------|----------------------------|
+| **Purpose** | Project workflow management | Structured reasoning process |
+| **Focus** | Session continuity & task tracking | Step-by-step thinking during tasks |
+| **Persistence** | Saves to disk (features.json, progress.md) | In-memory only (session-scoped) |
+| **Scope** | Across multiple sessions | Within a single reasoning task |
+| **What it tracks** | Features, progress, context usage, git | Individual thought steps & revisions |
+
+### Using Them Together
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Session                        │
+│                                                          │
+│  ┌──────────────────┐     ┌──────────────────────────┐  │
+│  │ Sequential       │     │ Claude Harness            │  │
+│  │ Thinking MCP     │     │                          │  │
+│  │                  │     │ • What feature am I on?  │  │
+│  │ • How do I solve │     │ • What's done/remaining? │  │
+│  │   this problem?  │     │ • How much context used? │  │
+│  │ • Step 1...      │     │ • Session handoff        │  │
+│  │ • Revise step 2  │     │                          │  │
+│  │ • Branch idea... │     │                          │  │
+│  └──────────────────┘     └──────────────────────────┘  │
+│       ↑                            ↑                     │
+│  MICRO: reasoning             MACRO: workflow            │
+│  within a task                across sessions            │
+└─────────────────────────────────────────────────────────┘
+```
+
+- **Harness** tells Claude "Work on F003: Add authentication"
+- **Sequential Thinking** helps Claude reason through HOW to implement it
+- **Harness** tracks that F003 is complete and what files changed
+
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) - Version history and release notes

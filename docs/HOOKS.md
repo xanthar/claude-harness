@@ -358,6 +358,7 @@ claude-harness context show
 2. Verify settings.json syntax: `cat .claude/settings.json | jq .`
 3. Ensure `jq` is installed: `which jq` (install with `apt install jq` or `brew install jq`)
 4. Check Claude Code logs for errors
+5. Regenerate hooks: `claude-harness refresh` (regenerates all hook scripts)
 
 ### Context Showing 0
 
