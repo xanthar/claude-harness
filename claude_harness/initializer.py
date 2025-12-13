@@ -85,6 +85,14 @@ class HarnessConfig:
     context_warning_threshold: float = 0.7  # Warn at 70%
     context_critical_threshold: float = 0.9  # Critical at 90%
     show_context_in_status: bool = True  # Show in status output
+    auto_reset_session: bool = True  # Reset context on new session
+    auto_save_handoff: bool = True  # Auto-save handoff on session end
+
+    # Output Control (to reduce terminal scrolling issues)
+    output_compact_mode: bool = False  # Use compact output by default
+    output_max_lines: int = 50  # Max lines before truncation (0 = unlimited)
+    output_max_files_shown: int = 20  # Max files to show in lists
+    output_truncate_long_values: bool = True  # Truncate long values in tables
 
     # Subagent Delegation
     delegation_enabled: bool = False  # Enable subagent delegation hints
@@ -92,7 +100,7 @@ class HarnessConfig:
     delegation_parallel_limit: int = 3  # Max concurrent subagent suggestions
 
     # Claude Code Integration
-    create_claude_hooks: bool = False  # Auto-create .claude/settings.json with hooks
+    create_claude_hooks: bool = False  # Auto-create .claude/settings.local.json with hooks
 
     # Features
     initial_phase: str = "Phase 1"
@@ -146,6 +154,14 @@ class HarnessConfig:
                 "warning_threshold": self.context_warning_threshold,
                 "critical_threshold": self.context_critical_threshold,
                 "show_in_status": self.show_context_in_status,
+                "auto_reset_session": self.auto_reset_session,
+                "auto_save_handoff": self.auto_save_handoff,
+            },
+            "output": {
+                "compact_mode": self.output_compact_mode,
+                "max_lines": self.output_max_lines,
+                "max_files_shown": self.output_max_files_shown,
+                "truncate_long_values": self.output_truncate_long_values,
             },
             "delegation": {
                 "enabled": self.delegation_enabled,
@@ -700,7 +716,7 @@ class Initializer:
         )
 
         self.config.create_claude_hooks = questionary.confirm(
-            "Auto-create .claude/settings.json with harness hooks?",
+            "Auto-create .claude/settings.local.json with harness hooks?",
             default=True,
         ).ask()
 
@@ -1577,10 +1593,10 @@ exit 0
             f.write(activity_logger)
         os.chmod(logger_path, 0o755)
 
-        # Session stop hook - shows summary
+        # Session stop hook - shows summary, saves handoff, marks session closed
         session_stop = '''#!/bin/bash
 # Claude Harness - Session Stop Hook
-# Shows context and progress summary when Claude stops
+# Shows summary, saves handoff, and marks session closed when Claude stops
 
 [ -f ".claude-harness/config.json" ] || exit 0
 
@@ -1590,6 +1606,18 @@ claude-harness context show 2>/dev/null || true
 echo "---"
 claude-harness progress show 2>/dev/null || true
 echo "======================="
+
+# Check if auto_save_handoff is enabled (default: true)
+AUTO_HANDOFF=$(cat .claude-harness/config.json 2>/dev/null | grep -o '"auto_save_handoff"[[:space:]]*:[[:space:]]*false' || echo "")
+if [ -z "$AUTO_HANDOFF" ]; then
+    # Auto-save handoff document
+    echo ""
+    echo "Saving session handoff..."
+    claude-harness context handoff --save 2>/dev/null || true
+fi
+
+# Mark session as closed for clean restart
+claude-harness context session-close 2>/dev/null || true
 
 exit 0
 '''
@@ -1607,11 +1635,15 @@ exit 0
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/session-stop.sh")
 
     def _write_claude_settings(self):
-        """Write Claude Code settings.json with harness hooks."""
+        """Write Claude Code settings.local.json with harness hooks.
+
+        Uses settings.local.json (project-specific, not committed) rather than
+        settings.json to keep harness hooks local to each project instance.
+        """
         claude_dir = self.project_path / ".claude"
         claude_dir.mkdir(exist_ok=True)
 
-        settings_path = claude_dir / "settings.json"
+        settings_path = claude_dir / "settings.local.json"
 
         # Correct Claude Code hooks format - hooks receive JSON via stdin
         hooks_config = {
@@ -1665,7 +1697,7 @@ exit 0
                         ]
                     }
                 ],
-                "Stop": [
+                "SessionEnd": [
                     {
                         "hooks": [
                             {
@@ -1713,11 +1745,11 @@ exit 0
                     json.dump(existing, f, indent=2)
 
                 console.print(
-                    f"  [green]Updated:[/green] .claude/settings.json (merged with existing)"
+                    f"  [green]Updated:[/green] .claude/settings.local.json (merged with existing)"
                 )
             except json.JSONDecodeError:
                 console.print(
-                    f"  [yellow]Warning:[/yellow] .claude/settings.json exists but is invalid JSON"
+                    f"  [yellow]Warning:[/yellow] .claude/settings.local.json exists but is invalid JSON"
                 )
                 console.print(
                     f"  [yellow]Skipping hooks config - please add manually from docs/HOOKS.md[/yellow]"
@@ -1726,7 +1758,7 @@ exit 0
             # Create new settings file
             with open(settings_path, "w") as f:
                 json.dump(hooks_config, f, indent=2)
-            console.print(f"  [green]Created:[/green] .claude/settings.json")
+            console.print(f"  [green]Created:[/green] .claude/settings.local.json")
 
     def _update_claude_md(self):
         """Update or create CLAUDE.md with harness integration."""
@@ -2019,7 +2051,7 @@ addopts = -v --tb=short
         console.print("  scripts/init.ps1")
 
         if self.config.create_claude_hooks:
-            console.print("  .claude/settings.json (Claude Code hooks)")
+            console.print("  .claude/settings.local.json (Claude Code hooks)")
 
         if self.config.e2e_enabled:
             console.print("  e2e/conftest.py")

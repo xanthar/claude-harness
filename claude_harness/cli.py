@@ -27,6 +27,7 @@ from .output_compressor import OutputCompressor
 from .exploration_cache import ExplorationCache, get_exploration_cache
 from .file_read_optimizer import FileReadOptimizer
 from .lazy_loader import LazyContextLoader, get_lazy_loader
+from .discoveries import DiscoveryTracker, get_discovery_tracker
 
 
 console = Console()
@@ -939,6 +940,41 @@ def context_reset(ctx):
 
     ct.reset_session()
     console.print("[green]Context metrics reset for new session.[/green]")
+
+
+@context.command("session-close")
+@click.pass_context
+def context_session_close(ctx):
+    """Mark current session as closed.
+
+    When a session is closed, the next Claude session will start with
+    fresh metrics (if auto_reset_session is enabled in config).
+    This is called by the Stop hook automatically.
+    """
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    ct.mark_session_closed()
+    session_info = ct.get_session_info()
+    console.print(f"[yellow]Session {session_info['session_id']} marked as closed.[/yellow]")
+    console.print(f"[dim]Usage at close: {session_info['usage_percent']:.1f}%[/dim]")
+
+
+@context.command("session-info")
+@click.pass_context
+def context_session_info(ctx):
+    """Show current session information."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    info = ct.get_session_info()
+    console.print(f"[cyan]Session ID:[/cyan] {info['session_id']}")
+    console.print(f"[cyan]Started:[/cyan] {info['session_start']}")
+    console.print(f"[cyan]Duration:[/cyan] {info['duration_minutes']:.1f} minutes")
+    console.print(f"[cyan]Usage:[/cyan] {info['usage_percent']:.1f}%")
+    console.print(f"[cyan]Closed:[/cyan] {info['closed']}")
+    if info['estimated_compactions'] > 0:
+        console.print(f"[cyan]Est. Compactions:[/cyan] ~{info['estimated_compactions']}")
 
 
 @context.command("track-file")
@@ -2241,6 +2277,184 @@ def orchestrate_reset(ctx, yes):
 
     engine.reset_session()
     console.print("[green]Orchestration session reset.[/green]")
+
+
+# ==================== DISCOVERY COMMANDS ====================
+
+
+@main.group()
+@click.pass_context
+def discovery(ctx):
+    """Track discoveries, findings, and new requirements."""
+    pass
+
+
+@discovery.command("add")
+@click.argument("summary")
+@click.option("--context", "-c", default="", help="What was happening when discovered")
+@click.option("--details", "-d", default="", help="Detailed explanation")
+@click.option("--impact", "-i", default="", help="What this affects")
+@click.option("--tags", "-t", multiple=True, help="Tags for categorization")
+@click.option("--feature", "-f", default="", help="Related feature ID")
+@click.pass_context
+def discovery_add(ctx, summary: str, context: str, details: str, impact: str, tags, feature: str):
+    """Add a new discovery.
+
+    Example:
+        claude-harness discovery add "Need X-API-Key header for auth" -t auth -t api
+    """
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    discovery = tracker.add_discovery(
+        summary=summary,
+        context=context,
+        details=details,
+        impact=impact,
+        tags=list(tags),
+        related_feature=feature,
+        source="manual",
+    )
+
+    console.print(f"[green]Added discovery {discovery.id}:[/green] {summary}")
+    if tags:
+        console.print(f"[dim]Tags: {', '.join(tags)}[/dim]")
+
+
+@discovery.command("list")
+@click.option("--tag", "-t", default=None, help="Filter by tag")
+@click.option("--feature", "-f", default=None, help="Filter by feature ID")
+@click.option("--limit", "-n", default=0, type=int, help="Max items to show (0=all)")
+@click.option("--compact", is_flag=True, help="Compact display")
+@click.pass_context
+def discovery_list(ctx, tag: str, feature: str, limit: int, compact: bool):
+    """List discoveries."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    discoveries = tracker.list_discoveries(tag=tag, feature=feature, limit=limit)
+    tracker.show_discoveries(discoveries, compact=compact)
+
+
+@discovery.command("show")
+@click.argument("discovery_id")
+@click.pass_context
+def discovery_show(ctx, discovery_id: str):
+    """Show a specific discovery."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    discovery = tracker.get_discovery(discovery_id)
+    if discovery:
+        tracker.show_discoveries([discovery])
+    else:
+        console.print(f"[red]Discovery {discovery_id} not found.[/red]")
+
+
+@discovery.command("search")
+@click.argument("query")
+@click.option("--compact", is_flag=True, help="Compact display")
+@click.pass_context
+def discovery_search(ctx, query: str, compact: bool):
+    """Search discoveries by keyword."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    discoveries = tracker.search_discoveries(query)
+    if discoveries:
+        console.print(f"[green]Found {len(discoveries)} matches for '{query}':[/green]")
+        console.print()
+        tracker.show_discoveries(discoveries, compact=compact)
+    else:
+        console.print(f"[yellow]No discoveries matching '{query}'[/yellow]")
+
+
+@discovery.command("delete")
+@click.argument("discovery_id")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def discovery_delete(ctx, discovery_id: str, yes: bool):
+    """Delete a discovery."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    discovery = tracker.get_discovery(discovery_id)
+    if not discovery:
+        console.print(f"[red]Discovery {discovery_id} not found.[/red]")
+        return
+
+    if not yes:
+        console.print(f"[yellow]About to delete:[/yellow] {discovery.summary}")
+        if not click.confirm("Continue?", default=False):
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    if tracker.delete_discovery(discovery_id):
+        console.print(f"[green]Deleted discovery {discovery_id}.[/green]")
+    else:
+        console.print(f"[red]Failed to delete discovery {discovery_id}.[/red]")
+
+
+@discovery.command("tags")
+@click.pass_context
+def discovery_tags(ctx):
+    """List all tags used in discoveries."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    stats = tracker.get_stats()
+    tags = stats.get("tags", [])
+    counts = stats.get("tag_counts", {})
+
+    if not tags:
+        console.print("[dim]No tags found.[/dim]")
+        return
+
+    console.print("[bold]Discovery Tags:[/bold]")
+    for tag in tags:
+        count = counts.get(tag, 0)
+        console.print(f"  - {tag} ({count})")
+
+
+@discovery.command("stats")
+@click.pass_context
+def discovery_stats(ctx):
+    """Show discovery statistics."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    stats = tracker.get_stats()
+
+    console.print("[bold]Discovery Statistics:[/bold]")
+    console.print(f"  Total discoveries: {stats['total']}")
+    console.print()
+
+    by_source = stats.get("by_source", {})
+    if by_source:
+        console.print("  By source:")
+        for source, count in by_source.items():
+            console.print(f"    - {source}: {count}")
+
+    tags = stats.get("tags", [])
+    if tags:
+        console.print()
+        console.print(f"  Tags: {', '.join(tags[:10])}")
+        if len(tags) > 10:
+            console.print(f"    ... and {len(tags) - 10} more")
+
+
+@discovery.command("summary")
+@click.pass_context
+def discovery_summary(ctx):
+    """Generate a summary for context/handoff."""
+    project_path = ctx.obj["project_path"]
+    tracker = get_discovery_tracker(project_path)
+
+    summary = tracker.generate_summary_for_context()
+    if summary:
+        console.print(summary)
+    else:
+        console.print("[dim]No discoveries to summarize.[/dim]")
 
 
 if __name__ == "__main__":

@@ -211,6 +211,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2025-12-13
+
+### Added
+
+#### Session-Based Context Tracking
+- **Session ID and Lifecycle Management**
+  - Unique `session_id` generated per session
+  - `session_closed` flag for clean session transitions
+  - Automatic session reset when previous session was closed
+  - Session archival to `session-history/` with metrics preserved
+
+- **Compaction Indicator**
+  - Shows estimated compaction count when usage exceeds 100%
+  - Compact view: `[!!!] Context: 250% (~2 compactions)`
+  - Full view shows detailed compaction info and recommendations
+
+- **New Context Commands**
+  - `context session-info` - Show current session details (ID, duration, closed status)
+  - `context session-close` - Manually mark session as closed
+
+#### Auto-Save Handoff on Exit
+- **SessionEnd Hook Integration**
+  - Automatically saves handoff document when Claude exits (`/exit`)
+  - Marks session as closed for clean restart
+  - Configurable via `auto_save_handoff` config option
+
+#### Output Control System
+- **New `output_helper.py` Module**
+  - Configurable output truncation to reduce terminal scrolling
+  - `OutputConfig` dataclass with max_lines, max_files_shown, truncate_long_values
+  - Functions: `truncate_text()`, `truncate_list()`, `truncate_output()`, `format_file_list()`
+  - `OutputHelper` class for project-specific output control
+
+- **Configuration Options**
+  - `output.compact_mode` - Enable compact display format
+  - `output.max_lines` - Limit output lines (default: 50)
+  - `output.max_files_shown` - Limit file lists (default: 20)
+  - `output.truncate_long_values` - Truncate long values in tables
+
+#### Discoveries Tracking System
+- **New `discoveries.py` Module**
+  - Track arbitrary findings, requirements, and institutional knowledge
+  - `Discovery` dataclass with id, summary, context, details, impact, tags
+  - `DiscoveryTracker` class for CRUD operations
+  - JSON persistence in `.claude-harness/discoveries.json`
+
+- **Discovery CLI Commands** (`claude-harness discovery`)
+  - `discovery add` - Add a discovery with summary, context, tags, impact
+  - `discovery list` - List all discoveries (filterable by tag/feature)
+  - `discovery show <ID>` - Show detailed discovery information
+  - `discovery search <query>` - Search discoveries (case-insensitive)
+  - `discovery delete <ID>` - Delete a discovery
+  - `discovery tags` - List all unique tags
+  - `discovery stats` - Show discovery statistics
+  - `discovery summary` - Generate summary for context handoff
+
+### Changed
+
+#### Hook Configuration
+- **SessionEnd instead of Stop**
+  - Changed from `Stop` hook to `SessionEnd` hook for exit handling
+  - `Stop` only fires on natural Claude stop, not user `/exit`
+  - `SessionEnd` fires on all session endings including `/exit`
+
+- **Project-Specific Settings**
+  - Hooks now written to `.claude/settings.local.json` (not `settings.json`)
+  - Keeps harness hooks project-specific and not committed to repo
+  - Uses simple relative paths for hook commands
+
+### Fixed
+- Session reset now persists to disk immediately
+- Hook commands use simple relative paths for reliable execution
+
+### Testing
+- 563 tests (up from 246)
+- New test modules: `test_discoveries.py` (23 tests), `test_output_helper.py` (28 tests)
+- Extended `test_context_tracker.py` with session lifecycle tests (7 new tests)
+- 100% pass rate
+
+---
+
 ## [Unreleased]
 
 ### Planned
@@ -222,6 +303,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.5.0 | 2025-12-13 | Session-based tracking, auto-handoff, discoveries, output control |
 | 1.4.0 | 2025-12-12 | 35 slash commands for Claude Code integration |
 | 1.3.0 | 2025-12-12 | Subagent delegation system with rule-based task matching |
 | 1.1.0 | 2025-12-12 | Feature info, notes, bulk operations, enhanced filtering |

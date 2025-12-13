@@ -1,0 +1,22 @@
+{
+  "session_start": "2025-12-13T12:56:11.912948+00:00",
+  "session_duration_minutes": 9.298324584960937e-07,
+  "session_id": "72074dc2",
+  "session_closed": false,
+  "files_read": [],
+  "files_read_chars": 0,
+  "files_written": [],
+  "files_written_chars": 0,
+  "commands_executed": 0,
+  "tool_calls": 0,
+  "estimated_input_tokens": 0,
+  "estimated_output_tokens": 0,
+  "estimated_total_tokens": 0,
+  "context_budget": 200000,
+  "context_usage_percent": 0.0,
+  "remaining_tokens": 200000,
+  "status": "ok",
+  "current_task_id": null,
+  "task_metrics": {},
+  "estimated_compactions": 0
+}

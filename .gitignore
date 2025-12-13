@@ -50,3 +50,15 @@ Thumbs.db
 
 # Claude Harness (per-project files)
 .claude-harness/session-history/
+.claude-harness/context_metrics.json
+.claude-harness/discoveries.json
+
+# Test projects (not part of the harness codebase)
+prompt-template-manager/
+
+# Temporary test directories
+/tmp/
+*.tmp
+
+# Local Claude settings (not project settings)
+.claude/settings.local.json

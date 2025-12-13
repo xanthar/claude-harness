@@ -243,20 +243,20 @@ class TestInitializerClaudeSettings:
         return init
 
     def test_write_claude_settings_new(self, initializer, temp_project):
-        """Test creating new .claude/settings.json."""
+        """Test creating new .claude/settings.local.json."""
         initializer._write_claude_settings()
 
-        settings_file = temp_project / ".claude" / "settings.json"
+        settings_file = temp_project / ".claude" / "settings.local.json"
         assert settings_file.exists()
 
         data = json.loads(settings_file.read_text())
         assert "hooks" in data
         assert "PreToolUse" in data["hooks"]
         assert "PostToolUse" in data["hooks"]
-        assert "Stop" in data["hooks"]
+        assert "SessionEnd" in data["hooks"]
 
     def test_write_claude_settings_merge(self, initializer, temp_project):
-        """Test merging with existing .claude/settings.json."""
+        """Test merging with existing .claude/settings.local.json."""
         claude_dir = temp_project / ".claude"
         claude_dir.mkdir()
 
@@ -267,12 +267,12 @@ class TestInitializerClaudeSettings:
                 "PreToolUse": [{"matcher": "custom", "command": "echo custom"}]
             },
         }
-        with open(claude_dir / "settings.json", "w") as f:
+        with open(claude_dir / "settings.local.json", "w") as f:
             json.dump(existing, f)
 
         initializer._write_claude_settings()
 
-        data = json.loads((claude_dir / "settings.json").read_text())
+        data = json.loads((claude_dir / "settings.local.json").read_text())
 
         # Should preserve existing
         assert data["custom_setting"] == "value"
@@ -420,7 +420,7 @@ class TestInitializerNonInteractive:
         assert (scripts_dir / "init.sh").exists()
 
         # Should have enabled Claude hooks
-        assert (tmp_path / ".claude" / "settings.json").exists()
+        assert (tmp_path / ".claude" / "settings.local.json").exists()
 
     def test_non_interactive_uses_detected_values(self, tmp_path):
         """Test that non-interactive mode uses detected stack values."""
