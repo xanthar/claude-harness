@@ -1702,7 +1702,7 @@ exit 0
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": "\"$CLAUDE_PROJECT_DIR\"/.claude-harness/hooks/session-stop.sh"
+                                "command": ".claude-harness/hooks/session-stop.sh"
                             }
                         ]
                     }
