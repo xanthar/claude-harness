@@ -429,3 +429,144 @@ class TestContextTrackerDisabled:
         """Test that command tracking is skipped when disabled."""
         disabled_tracker.track_command("ls", 100)
         # Should not raise, just skip
+
+
+class TestSessionBasedTracking:
+    """Tests for session-based context tracking."""
+
+    @pytest.fixture
+    def tracker_with_config(self, tmp_path):
+        """Create a tracker with auto_reset_session enabled."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+        config = {
+            "context_tracking": {
+                "enabled": True,
+                "auto_reset_session": True,
+                "budget": 200000,
+            }
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+        return ContextTracker(str(tmp_path))
+
+    def test_session_id_generated(self, tracker_with_config):
+        """Test that a session ID is generated."""
+        metrics = tracker_with_config.get_metrics()
+        assert metrics.session_id != ""
+        assert len(metrics.session_id) == 8  # UUID[:8]
+
+    def test_mark_session_closed(self, tracker_with_config):
+        """Test marking session as closed."""
+        tracker_with_config.mark_session_closed()
+        metrics = tracker_with_config.get_metrics()
+        assert metrics.session_closed is True
+
+    def test_session_info(self, tracker_with_config):
+        """Test get_session_info returns correct data."""
+        info = tracker_with_config.get_session_info()
+        assert "session_id" in info
+        assert "session_start" in info
+        assert "duration_minutes" in info
+        assert "closed" in info
+        assert "usage_percent" in info
+        assert info["closed"] is False
+
+    def test_new_session_after_close(self, tmp_path):
+        """Test that a new session starts fresh after previous was closed."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+        config = {
+            "context_tracking": {
+                "enabled": True,
+                "auto_reset_session": True,
+            }
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+
+        # First session: track some activity
+        tracker1 = ContextTracker(str(tmp_path))
+        tracker1.track_file_read("file1.py", 5000)
+        tracker1.track_command("ls", 100)
+        old_session_id = tracker1.get_metrics().session_id
+
+        # Mark session as closed
+        tracker1.mark_session_closed()
+
+        # Second session: should start fresh
+        tracker2 = ContextTracker(str(tmp_path))
+        metrics2 = tracker2.get_metrics()
+
+        # New session should have fresh metrics
+        assert metrics2.session_id != old_session_id
+        assert metrics2.session_closed is False
+        assert len(metrics2.files_read) == 0
+        assert metrics2.commands_executed == 0
+
+    def test_session_archived_on_close(self, tmp_path):
+        """Test that closed sessions are archived."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+        config = {
+            "context_tracking": {
+                "enabled": True,
+                "auto_reset_session": True,
+            }
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+
+        # First session
+        tracker1 = ContextTracker(str(tmp_path))
+        tracker1.track_file_read("file1.py", 5000)
+        session_id = tracker1.get_metrics().session_id
+        tracker1.mark_session_closed()
+
+        # Second session triggers archive
+        tracker2 = ContextTracker(str(tmp_path))
+        _ = tracker2.get_metrics()
+
+        # Check archive exists
+        history_dir = harness_dir / "session-history"
+        archive_files = list(history_dir.glob(f"session_{session_id}_*.json"))
+        assert len(archive_files) == 1
+
+    def test_no_reset_when_disabled(self, tmp_path):
+        """Test that auto_reset_session=False preserves metrics."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+        config = {
+            "context_tracking": {
+                "enabled": True,
+                "auto_reset_session": False,  # Disabled
+            }
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+
+        # First session
+        tracker1 = ContextTracker(str(tmp_path))
+        tracker1.track_file_read("file1.py", 5000)
+        old_session_id = tracker1.get_metrics().session_id
+        tracker1.mark_session_closed()
+
+        # Second session: should NOT reset
+        tracker2 = ContextTracker(str(tmp_path))
+        metrics2 = tracker2.get_metrics()
+
+        # Should resume the same session (just unmarked as closed)
+        assert metrics2.session_id == old_session_id
+        assert metrics2.session_closed is False
+        assert len(metrics2.files_read) == 1  # Preserved
+
+    def test_compaction_tracking(self, tracker_with_config):
+        """Test estimated compaction count in metrics."""
+        metrics = tracker_with_config.get_metrics()
+        assert metrics.estimated_compactions == 0
+
+        # The actual compaction counting happens via status display
+        # This tests the field exists and is serialized
+        data = metrics.to_dict()
+        assert "estimated_compactions" in data
+        assert data["estimated_compactions"] == 0

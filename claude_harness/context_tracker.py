@@ -38,6 +38,8 @@ class ContextMetrics:
     # Session info
     session_start: str = ""
     session_duration_minutes: float = 0.0
+    session_id: str = ""  # Unique ID per session
+    session_closed: bool = False  # Marked true when session ends
 
     # File operations
     files_read: List[str] = field(default_factory=list)
@@ -63,9 +65,15 @@ class ContextMetrics:
     current_task_id: Optional[str] = None
     task_metrics: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
+    # Compaction tracking (estimated)
+    estimated_compactions: int = 0
+
     def __post_init__(self):
         if not self.session_start:
             self.session_start = datetime.now(timezone.utc).isoformat()
+        if not self.session_id:
+            import uuid
+            self.session_id = str(uuid.uuid4())[:8]
 
     @property
     def context_usage_percent(self) -> float:
@@ -94,6 +102,8 @@ class ContextMetrics:
         return {
             "session_start": self.session_start,
             "session_duration_minutes": self.session_duration_minutes,
+            "session_id": self.session_id,
+            "session_closed": self.session_closed,
             "files_read": self.files_read,
             "files_read_chars": self.files_read_chars,
             "files_written": self.files_written,
@@ -109,6 +119,7 @@ class ContextMetrics:
             "status": self.status,
             "current_task_id": self.current_task_id,
             "task_metrics": self.task_metrics,
+            "estimated_compactions": self.estimated_compactions,
         }
 
     @classmethod
@@ -117,6 +128,8 @@ class ContextMetrics:
         return cls(
             session_start=data.get("session_start", ""),
             session_duration_minutes=data.get("session_duration_minutes", 0.0),
+            session_id=data.get("session_id", ""),
+            session_closed=data.get("session_closed", False),
             files_read=data.get("files_read", []),
             files_read_chars=data.get("files_read_chars", 0),
             files_written=data.get("files_written", []),
@@ -129,6 +142,7 @@ class ContextMetrics:
             context_budget=data.get("context_budget", 200000),
             current_task_id=data.get("current_task_id"),
             task_metrics=data.get("task_metrics", {}),
+            estimated_compactions=data.get("estimated_compactions", 0),
         )
 
 
@@ -151,29 +165,71 @@ class ContextTracker:
         return {}
 
     def _load_metrics(self) -> ContextMetrics:
-        """Load or create metrics."""
+        """Load or create metrics.
+
+        Handles session lifecycle:
+        - If previous session was marked closed, starts fresh session
+        - Archives previous session metrics before reset
+        - Respects auto_reset_session config setting
+        """
         if self._metrics is not None:
             return self._metrics
+
+        config = self._load_config()
+        context_config = config.get("context_tracking", {})
+        auto_reset = context_config.get("auto_reset_session", True)
+
+        previous_session = None
 
         if self.metrics_file.exists():
             try:
                 with open(self.metrics_file) as f:
                     data = json.load(f)
-                self._metrics = ContextMetrics.from_dict(data)
+                loaded_metrics = ContextMetrics.from_dict(data)
+
+                # Check if previous session was closed
+                if loaded_metrics.session_closed and auto_reset:
+                    # Archive previous session before reset
+                    previous_session = loaded_metrics
+                    self._archive_session(loaded_metrics)
+                    # Start fresh session
+                    self._metrics = ContextMetrics()
+                else:
+                    self._metrics = loaded_metrics
+                    # If resuming, mark as not closed
+                    self._metrics.session_closed = False
             except Exception:
                 self._metrics = ContextMetrics()
         else:
             self._metrics = ContextMetrics()
 
         # Apply config settings
-        config = self._load_config()
-        context_config = config.get("context_tracking", {})
         if context_config.get("enabled", True):
             self._metrics.context_budget = context_config.get("budget", 200000)
             self._metrics.context_warning_threshold = context_config.get("warning_threshold", 0.7)
             self._metrics.context_critical_threshold = context_config.get("critical_threshold", 0.9)
 
         return self._metrics
+
+    def _archive_session(self, metrics: ContextMetrics):
+        """Archive a closed session's metrics to session history.
+
+        Args:
+            metrics: The metrics from the closed session to archive.
+        """
+        history_dir = self.project_path / ".claude-harness" / "session-history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create archive filename with session ID and timestamp
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        session_id = metrics.session_id or "unknown"
+        archive_file = history_dir / f"session_{session_id}_{timestamp}.json"
+
+        try:
+            with open(archive_file, "w") as f:
+                json.dump(metrics.to_dict(), f, indent=2)
+        except IOError:
+            pass  # Fail silently on archive errors
 
     def _save_metrics(self):
         """Save metrics to file."""
@@ -326,11 +382,45 @@ class ContextTracker:
 
         self._save_metrics()
 
-    def reset_session(self):
-        """Reset metrics for a new session."""
+    def reset_session(self, archive: bool = True):
+        """Reset metrics for a new session.
+
+        Args:
+            archive: If True, archive current session before reset.
+        """
+        if archive and self._metrics is not None:
+            self._archive_session(self._metrics)
+
         self._metrics = ContextMetrics()
         self._start_time = time.time()
         self._save_metrics()
+
+    def mark_session_closed(self):
+        """Mark the current session as closed.
+
+        When a session is marked closed, the next session start will
+        automatically reset metrics (if auto_reset_session is enabled).
+        This is typically called by the Stop hook.
+        """
+        metrics = self._load_metrics()
+        metrics.session_closed = True
+        self._save_metrics()
+
+    def get_session_info(self) -> dict:
+        """Get information about the current session.
+
+        Returns:
+            dict with session_id, session_start, duration, closed status
+        """
+        metrics = self._load_metrics()
+        return {
+            "session_id": metrics.session_id,
+            "session_start": metrics.session_start,
+            "duration_minutes": metrics.session_duration_minutes,
+            "closed": metrics.session_closed,
+            "usage_percent": metrics.context_usage_percent,
+            "estimated_compactions": metrics.estimated_compactions,
+        }
 
     def get_metrics(self) -> ContextMetrics:
         """Get current metrics."""

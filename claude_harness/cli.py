@@ -941,6 +941,41 @@ def context_reset(ctx):
     console.print("[green]Context metrics reset for new session.[/green]")
 
 
+@context.command("session-close")
+@click.pass_context
+def context_session_close(ctx):
+    """Mark current session as closed.
+
+    When a session is closed, the next Claude session will start with
+    fresh metrics (if auto_reset_session is enabled in config).
+    This is called by the Stop hook automatically.
+    """
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    ct.mark_session_closed()
+    session_info = ct.get_session_info()
+    console.print(f"[yellow]Session {session_info['session_id']} marked as closed.[/yellow]")
+    console.print(f"[dim]Usage at close: {session_info['usage_percent']:.1f}%[/dim]")
+
+
+@context.command("session-info")
+@click.pass_context
+def context_session_info(ctx):
+    """Show current session information."""
+    project_path = ctx.obj["project_path"]
+    ct = ContextTracker(project_path)
+
+    info = ct.get_session_info()
+    console.print(f"[cyan]Session ID:[/cyan] {info['session_id']}")
+    console.print(f"[cyan]Started:[/cyan] {info['session_start']}")
+    console.print(f"[cyan]Duration:[/cyan] {info['duration_minutes']:.1f} minutes")
+    console.print(f"[cyan]Usage:[/cyan] {info['usage_percent']:.1f}%")
+    console.print(f"[cyan]Closed:[/cyan] {info['closed']}")
+    if info['estimated_compactions'] > 0:
+        console.print(f"[cyan]Est. Compactions:[/cyan] ~{info['estimated_compactions']}")
+
+
 @context.command("track-file")
 @click.argument("filepath")
 @click.argument("chars", type=int)
