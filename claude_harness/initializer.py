@@ -88,6 +88,12 @@ class HarnessConfig:
     auto_reset_session: bool = True  # Reset context on new session
     auto_save_handoff: bool = True  # Auto-save handoff on session end
 
+    # Output Control (to reduce terminal scrolling issues)
+    output_compact_mode: bool = False  # Use compact output by default
+    output_max_lines: int = 50  # Max lines before truncation (0 = unlimited)
+    output_max_files_shown: int = 20  # Max files to show in lists
+    output_truncate_long_values: bool = True  # Truncate long values in tables
+
     # Subagent Delegation
     delegation_enabled: bool = False  # Enable subagent delegation hints
     delegation_auto: bool = False  # Auto-generate delegation hints in CLAUDE.md
@@ -150,6 +156,12 @@ class HarnessConfig:
                 "show_in_status": self.show_context_in_status,
                 "auto_reset_session": self.auto_reset_session,
                 "auto_save_handoff": self.auto_save_handoff,
+            },
+            "output": {
+                "compact_mode": self.output_compact_mode,
+                "max_lines": self.output_max_lines,
+                "max_files_shown": self.output_max_files_shown,
+                "truncate_long_values": self.output_truncate_long_values,
             },
             "delegation": {
                 "enabled": self.delegation_enabled,
