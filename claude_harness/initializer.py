@@ -1780,12 +1780,67 @@ exit 0
         # Check if already present
         if ".claude-harness/context_metrics.json" in existing_content:
             console.print(f"  [blue]Preserved:[/blue] .gitignore (harness entries exist)")
+            # Still untrack files in case they were tracked before
+            self._untrack_session_files()
             return
 
         # Append harness ignores
         new_content = existing_content.rstrip() + "\n" + "\n".join(harness_ignores) + "\n"
         gitignore_path.write_text(new_content)
         console.print(f"  [green]Updated:[/green] .gitignore (added harness session files)")
+
+        # Untrack already-tracked session files (gitignore only affects new files)
+        self._untrack_session_files()
+
+    def _untrack_session_files(self):
+        """Untrack session files that are already tracked by git.
+
+        .gitignore only prevents new files from being tracked.
+        Files already in git continue to be tracked until explicitly removed.
+        """
+        import subprocess
+
+        # Check if this is a git repo
+        git_dir = self.project_path / ".git"
+        if not git_dir.exists():
+            return
+
+        session_files = [
+            ".claude-harness/context_metrics.json",
+            ".claude-harness/session-history",
+            ".claude-harness/discoveries.json",
+        ]
+
+        for filepath in session_files:
+            full_path = self.project_path / filepath
+            if not full_path.exists():
+                continue
+
+            # Check if file is tracked by git
+            try:
+                result = subprocess.run(
+                    ["git", "ls-files", "--error-unmatch", filepath],
+                    cwd=self.project_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    # File is tracked, untrack it
+                    if full_path.is_dir():
+                        subprocess.run(
+                            ["git", "rm", "--cached", "-r", filepath],
+                            cwd=self.project_path,
+                            capture_output=True,
+                        )
+                    else:
+                        subprocess.run(
+                            ["git", "rm", "--cached", filepath],
+                            cwd=self.project_path,
+                            capture_output=True,
+                        )
+                    console.print(f"  [yellow]Untracked:[/yellow] {filepath} (now ignored by git)")
+            except Exception:
+                pass  # Not a git repo or git not available
 
     def _write_claude_settings(self):
         """Write Claude Code settings.local.json with harness hooks.
