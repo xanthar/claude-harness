@@ -192,12 +192,15 @@ class ContextTracker:
                     # Archive previous session before reset
                     previous_session = loaded_metrics
                     self._archive_session(loaded_metrics)
-                    # Start fresh session
+                    # Start fresh session and persist it
                     self._metrics = ContextMetrics()
+                    self._save_metrics()
                 else:
                     self._metrics = loaded_metrics
-                    # If resuming, mark as not closed
-                    self._metrics.session_closed = False
+                    # If resuming, mark as not closed and persist
+                    if self._metrics.session_closed:
+                        self._metrics.session_closed = False
+                        self._save_metrics()
             except Exception:
                 self._metrics = ContextMetrics()
         else:
