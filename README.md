@@ -13,10 +13,13 @@ A comprehensive harness that optimizes Claude Code sessions by addressing the fo
 
 - **Session Continuity**: `progress.md` maintains context between sessions
 - **Feature Management**: Track features/tasks with status, subtasks, and E2E validation
-- **Context Tracking**: Monitor estimated token usage and context budget
+- **Context Tracking**: Monitor estimated token usage with session-based lifecycle
+- **Compaction Indicator**: Shows estimated compaction count when usage exceeds 100%
+- **Auto-Save Handoff**: Automatically saves handoff document on session exit
+- **Discoveries Tracking**: Capture findings, requirements, and institutional knowledge
 - **Startup Ritual**: `init.sh` (Bash) and `init.ps1` (PowerShell) scripts
 - **Git Safety Hooks**: Block dangerous operations (commits to main, force pushes)
-- **Auto-Hooks Setup**: Optionally create `.claude/settings.json` with hooks during init
+- **Auto-Hooks Setup**: Creates `.claude/settings.local.json` with hooks during init
 - **E2E Testing**: Playwright integration with test generation
 - **MCP Server**: Playwright browser automation via Model Context Protocol
 - **Stack Detection**: Automatically detects your project's language, framework, database
@@ -51,7 +54,7 @@ The initializer will:
 4. Create `scripts/init.sh` and `scripts/init.ps1` startup scripts
 5. Set up E2E testing structure
 6. Update/create `.claude/CLAUDE.md`
-7. Optionally create `.claude/settings.json` with hooks
+7. Create `.claude/settings.local.json` with hooks (project-specific)
 
 ### Start a session
 
@@ -169,12 +172,18 @@ python -m claude_harness.mcp.playwright_server
 
 ### Context Tracking
 
-Monitor estimated token usage to avoid running out of context:
+Monitor estimated token usage with session-based lifecycle:
 
 ```bash
 # Show context usage
 claude-harness context show
-claude-harness context show --full  # Detailed view
+claude-harness context show --full  # Detailed view with compaction info
+
+# Show session info
+claude-harness context session-info
+
+# Mark session as closed (triggers reset on next start)
+claude-harness context session-close
 
 # Reset for new session
 claude-harness context reset
@@ -191,10 +200,16 @@ claude-harness context end-task F-001
 claude-harness context metadata
 ```
 
-The status command also shows compact context usage:
+**Session-Based Features:**
+- Each session gets a unique `session_id`
+- Metrics automatically reset when a closed session is detected
+- Shows compaction indicator when usage exceeds 100% (e.g., `250% (~2 compactions)`)
+
+The status command shows compact context usage:
 
 ```
 [ * ] Context: 15.2% used | ~169,600 tokens remaining | 12 files read | 5 commands
+[!!!] Context: 250% (~2 compactions) | 12 files read | 5 commands
 ```
 
 ### Session Compression & Handoff
@@ -230,7 +245,7 @@ The handoff document includes:
 
 ### Hooks Setup
 
-Claude Code hooks enable automatic tracking and safety enforcement. During `claude-harness init`, you'll be asked if you want to auto-create `.claude/settings.json` with recommended hooks.
+Claude Code hooks enable automatic tracking and safety enforcement. During `claude-harness init`, hooks are automatically configured in `.claude/settings.local.json` (project-specific, not committed).
 
 **Auto-created hooks include:**
 - **PreToolUse**: Git safety checks (block commits to protected branches)
@@ -238,11 +253,13 @@ Claude Code hooks enable automatic tracking and safety enforcement. During `clau
   - Context tracking (file reads)
   - Auto-progress tracking (file writes/edits added to progress.md)
   - Activity logging
-- **Stop**: Show context summary and progress status
+- **SessionEnd**: Auto-save handoff, mark session closed, show summary
+
+> **Note**: The `SessionEnd` hook fires on all session endings including `/exit`. The older `Stop` hook only fires when Claude naturally stops, so we use `SessionEnd` to ensure handoffs are always saved.
 
 See [docs/HOOKS.md](docs/HOOKS.md) for detailed manual setup and customization.
 
-**Manual setup** - add to `.claude/settings.json`:
+**Manual setup** - add to `.claude/settings.local.json`:
 
 ```json
 {
@@ -250,31 +267,66 @@ See [docs/HOOKS.md](docs/HOOKS.md) for detailed manual setup and customization.
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "command": "[ -f .claude-harness/hooks/check-git-safety.sh ] && .claude-harness/hooks/check-git-safety.sh \"$TOOL_INPUT\""
+        "hooks": [{"type": "command", "command": ".claude-harness/hooks/check-git-safety.sh"}]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Read",
-        "command": "[ -f .claude-harness/config.json ] && claude-harness context track-file \"$TOOL_INPUT\" $(wc -c < \"$TOOL_INPUT\" 2>/dev/null || echo 1000)"
+        "hooks": [{"type": "command", "command": ".claude-harness/hooks/track-read.sh"}]
       },
       {
         "matcher": "Write",
-        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" write"
+        "hooks": [{"type": "command", "command": ".claude-harness/hooks/track-write.sh"}]
       },
       {
         "matcher": "Edit",
-        "command": "[ -f .claude-harness/hooks/track-progress.sh ] && .claude-harness/hooks/track-progress.sh \"$TOOL_INPUT\" edit"
+        "hooks": [{"type": "command", "command": ".claude-harness/hooks/track-edit.sh"}]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [{"type": "command", "command": ".claude-harness/hooks/log-activity.sh"}]
       }
     ],
-    "Stop": [
+    "SessionEnd": [
       {
-        "command": "[ -f .claude-harness/config.json ] && (claude-harness context show; claude-harness progress show)"
+        "hooks": [{"type": "command", "command": ".claude-harness/hooks/session-stop.sh"}]
       }
     ]
   }
 }
 ```
+
+### Discoveries Tracking
+
+Capture findings, requirements, and institutional knowledge during sessions:
+
+```bash
+# Add a discovery
+claude-harness discovery add "Auth requires JWT secret in env" --context "Found during testing" --tags security,config
+
+# List all discoveries
+claude-harness discovery list
+claude-harness discovery list --tag security  # Filter by tag
+claude-harness discovery list --feature F-001  # Filter by feature
+
+# Search discoveries
+claude-harness discovery search "JWT"
+
+# Show discovery details
+claude-harness discovery show D-001
+
+# View statistics
+claude-harness discovery stats
+
+# Generate summary for handoff
+claude-harness discovery summary
+
+# List all tags
+claude-harness discovery tags
+```
+
+Discoveries are persisted in `.claude-harness/discoveries.json` and included in handoff documents.
 
 ## Project Structure After Init
 
@@ -282,15 +334,20 @@ See [docs/HOOKS.md](docs/HOOKS.md) for detailed manual setup and customization.
 your-project/
 ├── .claude/
 │   ├── CLAUDE.md              # Enhanced with harness integration
-│   └── settings.json          # Claude Code hooks (optional)
+│   └── settings.local.json    # Claude Code hooks (project-specific)
 ├── .claude-harness/
 │   ├── config.json            # Project configuration
 │   ├── features.json          # Feature/task tracking
 │   ├── progress.md            # Session continuity log
 │   ├── context_metrics.json   # Context usage tracking
+│   ├── discoveries.json       # Captured findings and knowledge
 │   ├── hooks/
 │   │   ├── check-git-safety.sh
-│   │   └── log-activity.sh
+│   │   ├── track-read.sh
+│   │   ├── track-write.sh
+│   │   ├── track-edit.sh
+│   │   ├── log-activity.sh
+│   │   └── session-stop.sh
 │   └── session-history/       # Archived sessions
 ├── scripts/
 │   ├── init.sh                # Startup ritual (Bash)
@@ -427,6 +484,16 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | `claude-harness context summary` | Generate session summary |
 | `claude-harness context handoff` | Generate handoff document |
 | `claude-harness context compress` | Compress session (handoff + archive + reset) |
+| `claude-harness context session-info` | Show current session details |
+| `claude-harness context session-close` | Mark session as closed |
+| `claude-harness discovery add SUMMARY` | Add a discovery |
+| `claude-harness discovery list` | List all discoveries |
+| `claude-harness discovery show ID` | Show discovery details |
+| `claude-harness discovery search QUERY` | Search discoveries |
+| `claude-harness discovery delete ID` | Delete a discovery |
+| `claude-harness discovery tags` | List all unique tags |
+| `claude-harness discovery stats` | Show discovery statistics |
+| `claude-harness discovery summary` | Generate discovery summary |
 | `claude-harness e2e install` | Install Playwright |
 | `claude-harness e2e run` | Run E2E tests |
 | `claude-harness e2e generate ID` | Generate E2E test |

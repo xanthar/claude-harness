@@ -7,7 +7,9 @@ This guide explains how to configure Claude Code hooks to integrate with Claude 
 Claude Code hooks are shell commands that execute automatically in response to events:
 - **PreToolUse**: Before a tool (Bash, Read, Write, etc.) executes
 - **PostToolUse**: After a tool completes
-- **Stop**: When Claude Code stops (end of session)
+- **SessionEnd**: When session ends (including `/exit` command)
+
+> **Note**: There is also a `Stop` hook that only fires when Claude naturally stops (not on user `/exit`). Claude Harness uses `SessionEnd` instead to ensure handoff documents are saved regardless of how the session ends.
 
 ## Hook Input Format
 
@@ -79,11 +81,11 @@ Hooks can be configured at three levels:
 
 ### Automatic Setup (Recommended)
 
-When you run `claude-harness init`, hooks are automatically configured in `.claude/settings.json`.
+When you run `claude-harness init`, hooks are automatically configured in `.claude/settings.local.json` (project-specific, not committed to git).
 
 ### Manual Setup
 
-Create or update `.claude/settings.json` in your project:
+Create or update `.claude/settings.local.json` in your project:
 
 ```json
 {
@@ -137,7 +139,7 @@ Create or update `.claude/settings.json` in your project:
         ]
       }
     ],
-    "Stop": [
+    "SessionEnd": [
       {
         "hooks": [
           {
@@ -296,16 +298,22 @@ claude-harness context track-command "$CHAR_COUNT" 2>/dev/null || true
 exit 0
 ```
 
-### session-stop.sh (Stop)
+### session-stop.sh (SessionEnd)
 
-Shows session summary when Claude Code stops:
+Runs when session ends (including `/exit`). Saves handoff document and shows summary:
 
 ```bash
 #!/bin/bash
-# Claude Harness - Session Stop Hook
-# Shows context and progress summary
+# Claude Harness - Session End Hook
+# Auto-saves handoff and marks session closed
 
 [ -f ".claude-harness/config.json" ] || exit 0
+
+# Auto-save handoff document for next session
+claude-harness context handoff 2>/dev/null || true
+
+# Mark session as closed for clean restart
+claude-harness context session-close 2>/dev/null || true
 
 echo "=== Claude Harness Session Summary ==="
 claude-harness context show 2>/dev/null || true
@@ -314,6 +322,8 @@ claude-harness progress show 2>/dev/null || true
 
 exit 0
 ```
+
+> **Why SessionEnd instead of Stop?** The `Stop` hook only fires when Claude naturally stops generating. It does NOT fire when users type `/exit`. The `SessionEnd` hook fires on all session endings, ensuring handoff documents are always saved.
 
 ## Hook Exit Codes
 
@@ -387,10 +397,10 @@ To temporarily disable all hooks:
 
 ```bash
 # Rename settings file
-mv .claude/settings.json .claude/settings.json.disabled
+mv .claude/settings.local.json .claude/settings.local.json.disabled
 
 # Re-enable
-mv .claude/settings.json.disabled .claude/settings.json
+mv .claude/settings.local.json.disabled .claude/settings.local.json
 ```
 
 Or disable specific hooks by removing them from the JSON.
