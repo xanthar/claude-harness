@@ -1634,6 +1634,117 @@ exit 0
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/log-activity.sh")
         console.print(f"  [green]Created:[/green] .claude-harness/hooks/session-stop.sh")
 
+    def _get_default_permissions(self) -> list:
+        """Generate default permissions based on detected stack.
+
+        Returns a list of permission patterns that allow common development
+        commands without requiring manual approval each session.
+        """
+        # Common permissions for all projects
+        permissions = [
+            # Harness commands
+            "Bash(claude-harness:*)",
+            "Bash(.claude-harness/hooks/*:*)",
+
+            # Git operations
+            "Bash(git:*)",
+
+            # Common shell utilities
+            "Bash(cat:*)",
+            "Bash(ls:*)",
+            "Bash(echo:*)",
+            "Bash(grep:*)",
+            "Bash(find:*)",
+            "Bash(tree:*)",
+            "Bash(wc:*)",
+            "Bash(head:*)",
+            "Bash(tail:*)",
+            "Bash(mkdir:*)",
+            "Bash(cp:*)",
+            "Bash(mv:*)",
+            "Bash(rm:*)",
+            "Bash(chmod:*)",
+            "Bash(touch:*)",
+            "Bash(diff:*)",
+            "Bash(sort:*)",
+            "Bash(uniq:*)",
+            "Bash(which:*)",
+            "Bash(pwd)",
+            "Bash(env:*)",
+            "Bash(export:*)",
+            "Bash(timeout:*)",
+            "Bash(bash:*)",
+            "Bash(sh:*)",
+
+            # Web tools
+            "WebSearch",
+            "WebFetch(domain:*)",
+        ]
+
+        # Python-specific permissions
+        if self.config.language == "python":
+            permissions.extend([
+                "Bash(python:*)",
+                "Bash(python3:*)",
+                "Bash(pip:*)",
+                "Bash(pip3:*)",
+                "Bash(source:*)",
+                "Bash(.venv/bin/*:*)",
+                "Bash(venv/bin/*:*)",
+                "Bash(alembic:*)",
+                "Bash(flask:*)",
+                "Bash(django-admin:*)",
+                "Bash(uvicorn:*)",
+                "Bash(gunicorn:*)",
+                "Bash(pytest:*)",
+                "Bash(mypy:*)",
+                "Bash(ruff:*)",
+                "Bash(black:*)",
+                "Bash(isort:*)",
+                "Bash(bandit:*)",
+                "Bash(coverage:*)",
+            ])
+
+        # JavaScript/TypeScript-specific permissions
+        if self.config.language in ["javascript", "typescript"]:
+            permissions.extend([
+                "Bash(node:*)",
+                "Bash(npm:*)",
+                "Bash(npx:*)",
+                "Bash(yarn:*)",
+                "Bash(pnpm:*)",
+                "Bash(jest:*)",
+                "Bash(vitest:*)",
+                "Bash(eslint:*)",
+                "Bash(prettier:*)",
+                "Bash(tsc:*)",
+            ])
+
+        # Go-specific permissions
+        if self.config.language == "go":
+            permissions.extend([
+                "Bash(go:*)",
+            ])
+
+        # Rust-specific permissions
+        if self.config.language == "rust":
+            permissions.extend([
+                "Bash(cargo:*)",
+                "Bash(rustc:*)",
+            ])
+
+        # Docker permissions (if detected)
+        if self.config.framework and "docker" in str(self.config.framework).lower():
+            permissions.extend([
+                "Bash(docker:*)",
+                "Bash(docker-compose:*)",
+            ])
+
+        # Add write-unit-tests skill if available
+        permissions.append("Skill(write-unit-tests)")
+
+        return permissions
+
     def _write_claude_settings(self):
         """Write Claude Code settings.local.json with harness hooks.
 
@@ -1709,9 +1820,7 @@ exit 0
                 ]
             },
             "permissions": {
-                "allow": [
-                    "Bash(claude-harness:*)"
-                ]
+                "allow": self._get_default_permissions()
             }
         }
 

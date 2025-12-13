@@ -279,6 +279,62 @@ class TestInitializerClaudeSettings:
         # Should have merged hooks
         assert len(data["hooks"]["PreToolUse"]) >= 2
 
+    def test_default_permissions_python(self, temp_project):
+        """Test default permissions generated for Python projects."""
+        init = Initializer(str(temp_project))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            language="python",
+            create_claude_hooks=True,
+        )
+
+        permissions = init._get_default_permissions()
+
+        # Common permissions
+        assert "Bash(git:*)" in permissions
+        assert "Bash(claude-harness:*)" in permissions
+        assert "WebSearch" in permissions
+
+        # Python-specific
+        assert "Bash(python:*)" in permissions
+        assert "Bash(pytest:*)" in permissions
+        assert "Bash(.venv/bin/*:*)" in permissions
+
+    def test_default_permissions_javascript(self, temp_project):
+        """Test default permissions generated for JavaScript projects."""
+        init = Initializer(str(temp_project))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            language="javascript",
+            create_claude_hooks=True,
+        )
+
+        permissions = init._get_default_permissions()
+
+        # Common permissions
+        assert "Bash(git:*)" in permissions
+
+        # JavaScript-specific
+        assert "Bash(node:*)" in permissions
+        assert "Bash(npm:*)" in permissions
+        assert "Bash(yarn:*)" in permissions
+
+        # Should NOT have Python-specific
+        assert "Bash(python:*)" not in permissions
+        assert "Bash(pytest:*)" not in permissions
+
+    def test_permissions_in_settings_file(self, initializer, temp_project):
+        """Test that permissions are written to settings.local.json."""
+        initializer._write_claude_settings()
+
+        settings_file = temp_project / ".claude" / "settings.local.json"
+        data = json.loads(settings_file.read_text())
+
+        assert "permissions" in data
+        assert "allow" in data["permissions"]
+        assert len(data["permissions"]["allow"]) > 10  # Should have many permissions
+        assert "Bash(git:*)" in data["permissions"]["allow"]
+
 
 class TestInitializerDetection:
     """Tests for stack detection integration."""
