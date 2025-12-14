@@ -589,7 +589,6 @@ Claude Harness and the [Sequential Thinking MCP Server](https://github.com/model
 - [CHANGELOG.md](CHANGELOG.md) - Version history and release notes
 - [ROADMAP.md](ROADMAP.md) - Planned features and improvements
 - [docs/HOOKS.md](docs/HOOKS.md) - Detailed hook configuration guide
-- [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) - Latest integration test results
 
 ## Contributing
 

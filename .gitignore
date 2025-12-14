@@ -39,6 +39,7 @@ env/
 htmlcov/
 .tox/
 .nox/
+.mypy_cache/
 
 # E2E
 playwright-report/
