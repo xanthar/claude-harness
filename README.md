@@ -469,6 +469,7 @@ The harness adds mandatory rituals to your CLAUDE.md:
 
 ## CLI Reference
 
+### Core Commands
 | Command | Description |
 |---------|-------------|
 | `claude-harness init` | Initialize harness in project |
@@ -476,51 +477,112 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | `claude-harness status` | Show current status |
 | `claude-harness detect` | Preview stack detection |
 | `claude-harness run` | Execute init.sh |
-| `claude-harness feature list` | List features |
-| `claude-harness feature add NAME` | Add new feature |
-| `claude-harness feature start ID` | Start working on feature |
-| `claude-harness feature complete ID` | Complete feature |
-| `claude-harness feature subtask ID NAME` | Add subtask |
-| `claude-harness feature done ID INDEX` | Complete subtask |
-| `claude-harness progress show` | Show progress |
-| `claude-harness progress completed ITEM` | Add completed item |
-| `claude-harness progress wip ITEM` | Add WIP item |
-| `claude-harness progress file PATH` | Track modified file |
-| `claude-harness progress new-session` | Start new session |
-| `claude-harness context show` | Show context usage |
-| `claude-harness context reset` | Reset context metrics |
-| `claude-harness context budget N` | Set token budget |
-| `claude-harness context start-task ID` | Start tracking task |
-| `claude-harness context end-task ID` | End tracking task |
-| `claude-harness context summary` | Generate session summary |
-| `claude-harness context handoff` | Generate handoff document |
-| `claude-harness context compress` | Compress session (handoff + archive + reset) |
-| `claude-harness context session-info` | Show current session details |
-| `claude-harness context session-close` | Mark session as closed |
-| `claude-harness discovery add SUMMARY` | Add a discovery |
-| `claude-harness discovery list` | List all discoveries |
-| `claude-harness discovery show ID` | Show discovery details |
-| `claude-harness discovery search QUERY` | Search discoveries |
-| `claude-harness discovery delete ID` | Delete a discovery |
-| `claude-harness discovery tags` | List all unique tags |
-| `claude-harness discovery stats` | Show discovery statistics |
-| `claude-harness discovery summary` | Generate discovery summary |
-| `claude-harness e2e install` | Install Playwright |
-| `claude-harness e2e run` | Run E2E tests |
-| `claude-harness e2e generate ID` | Generate E2E test |
-| `claude-harness delegation status` | Show delegation status |
-| `claude-harness delegation enable/disable` | Toggle delegation |
-| `claude-harness delegation rules` | List delegation rules |
-| `claude-harness delegation suggest ID` | Get delegation suggestions |
-| `claude-harness orchestrate status` | Show orchestration status |
-| `claude-harness orchestrate evaluate` | Evaluate current feature for delegation |
-| `claude-harness orchestrate queue [ID]` | Generate delegation queue |
-| `claude-harness orchestrate start ID` | Start a delegation |
-| `claude-harness orchestrate complete ID` | Complete a delegation |
-| `claude-harness optimize status` | Show optimization status |
-| `claude-harness optimize cache-status` | Show cache statistics |
-| `claude-harness commands generate` | Generate slash commands |
-| `claude-harness commands list` | List available commands |
+
+### Feature Management (`feature`)
+| Command | Description |
+|---------|-------------|
+| `feature list` | List features |
+| `feature add NAME` | Add new feature |
+| `feature info ID` | Show feature details |
+| `feature start ID` | Start working on feature |
+| `feature complete ID` | Complete feature |
+| `feature block ID` | Block feature with reason |
+| `feature unblock ID` | Unblock feature |
+| `feature subtask ID NAME` | Add subtask |
+| `feature done ID INDEX/NAME` | Complete subtask |
+| `feature note ID TEXT` | Add note to feature |
+| `feature tests ID` | Mark tests as passing |
+| `feature e2e ID` | Mark E2E as validated |
+| `feature phase NAME` | Set current phase |
+
+### Progress Tracking (`progress`)
+| Command | Description |
+|---------|-------------|
+| `progress show` | Show progress |
+| `progress completed ITEM` | Add completed item |
+| `progress wip ITEM` | Add WIP item |
+| `progress blocker ITEM` | Add blocker |
+| `progress file PATH` | Track modified file |
+| `progress new-session` | Start new session |
+| `progress history` | Show session history |
+| `progress update` | Update progress fields |
+
+### Context Tracking (`context`)
+| Command | Description |
+|---------|-------------|
+| `context show` | Show context usage |
+| `context reset` | Reset context metrics |
+| `context budget N` | Set token budget |
+| `context start-task ID` | Start tracking task |
+| `context end-task ID` | End tracking task |
+| `context summary` | Generate session summary |
+| `context handoff` | Generate handoff document |
+| `context compress` | Compress session |
+| `context session-info` | Show session details |
+| `context session-close` | Mark session as closed |
+| `context metadata` | Output metadata for embedding |
+
+### Discoveries (`discovery`)
+| Command | Description |
+|---------|-------------|
+| `discovery add SUMMARY` | Add a discovery |
+| `discovery list` | List all discoveries |
+| `discovery show ID` | Show discovery details |
+| `discovery search QUERY` | Search discoveries |
+| `discovery delete ID` | Delete a discovery |
+| `discovery tags` | List all unique tags |
+| `discovery stats` | Show statistics |
+| `discovery summary` | Generate summary |
+
+### Delegation (`delegation`)
+| Command | Description |
+|---------|-------------|
+| `delegation status` | Show delegation status |
+| `delegation enable` | Enable delegation |
+| `delegation disable` | Disable delegation |
+| `delegation rules` | List delegation rules |
+| `delegation add-rule` | Add custom rule |
+| `delegation remove-rule NAME` | Remove rule |
+| `delegation enable-rule NAME` | Enable specific rule |
+| `delegation disable-rule NAME` | Disable specific rule |
+| `delegation suggest ID` | Get suggestions for feature |
+| `delegation auto --on/--off` | Configure auto-delegation |
+
+### Orchestration (`orchestrate`)
+| Command | Description |
+|---------|-------------|
+| `orchestrate status` | Show orchestration status |
+| `orchestrate evaluate` | Evaluate feature for delegation |
+| `orchestrate queue [ID]` | Generate delegation queue |
+| `orchestrate start ID` | Start a delegation |
+| `orchestrate complete ID` | Complete a delegation |
+| `orchestrate reset` | Reset orchestration session |
+
+### Optimization (`optimize`)
+| Command | Description |
+|---------|-------------|
+| `optimize status` | Show optimization status |
+| `optimize cache` | Show cache info |
+| `optimize cache-clear` | Clear cache |
+| `optimize prune` | Prune stale cache entries |
+| `optimize categorize PATH` | Categorize a file |
+| `optimize filter` | Show filter configuration |
+| `optimize compress TEXT` | Compress output text |
+| `optimize loading-plan` | Show lazy loading plan |
+| `optimize summary` | Show optimization summary |
+
+### E2E Testing (`e2e`)
+| Command | Description |
+|---------|-------------|
+| `e2e install` | Install Playwright |
+| `e2e run` | Run E2E tests |
+| `e2e generate ID` | Generate E2E test |
+
+### Slash Commands (`commands`)
+| Command | Description |
+|---------|-------------|
+| `commands generate` | Generate slash commands |
+| `commands list` | List available commands |
 
 ## Short Alias
 
