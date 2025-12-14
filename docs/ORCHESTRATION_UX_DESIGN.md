@@ -3,9 +3,9 @@
 **Document Type:** Experience Design Specification
 **Author:** Experience Designer Agent
 **Date:** 2025-12-12
-**Status:** 📋 Planned for Future Release
+**Status:** ✅ Implemented in v1.1.0
 
-> **Note:** This is a design specification for a future orchestration feature. Not yet implemented. See [ROADMAP.md](../ROADMAP.md) for current priorities.
+> **Note:** This design led to the orchestration feature implemented in v1.1.0. See `claude-harness orchestrate --help` for usage. Commands: `status`, `evaluate`, `queue`, `start`, `complete`, `reset`.
 
 ---
 
