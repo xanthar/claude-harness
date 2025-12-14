@@ -3,7 +3,9 @@
 **Document Type:** Experience Design Specification
 **Author:** Experience Designer Agent
 **Date:** 2025-12-12
-**Status:** Draft for Review
+**Status:** 📋 Planned for Future Release
+
+> **Note:** This is a design specification for a future orchestration feature. Not yet implemented. See [ROADMAP.md](../ROADMAP.md) for current priorities.
 
 ---
 
