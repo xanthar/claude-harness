@@ -102,6 +102,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Show creation date, time in current status
   - Display notes and blocked reason history
 
+- **Feature Sync Command** (`claude-harness feature sync`)
+  - Infer subtask status from modified files in progress.md
+  - Auto-start next pending feature if none in progress
+  - Auto-complete features when all subtasks are done
+  - `--dry-run` option to preview without changes
+  - `--no-auto-start` to disable auto-starting features
+
 - **Subtask Name-Based Completion**
   - Complete subtasks by partial name match (fuzzy matching)
   - Case-insensitive matching
@@ -152,11 +159,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed from `Stop` to `SessionEnd` hook for exit handling
   - Hooks now written to `.claude/settings.local.json` (project-specific)
 
+- **CLAUDE.md Template Enhanced**
+  - Added "FEATURE TRACKING COMMANDS" section with explicit command examples
+  - Session start ritual now requires `feature start <ID>`
+  - Clear workflow: `feature start` before work, `feature done` after subtasks
+
 ### Fixed
 - Session reset now persists to disk immediately
 - Hook commands use simple relative paths for reliable execution
 - init/refresh now untracks already-tracked session files
 - Data preservation on reinit (features.json, progress.md, config.json kept)
+- Placeholder text filtering in progress.md (fixes "No tasks in progress" persisting)
 
 ---
 
