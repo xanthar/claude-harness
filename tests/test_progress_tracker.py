@@ -91,6 +91,25 @@ class TestProgressTracker:
         progress = tracker.get_current_progress()
         assert "Working on JWT auth" in progress.in_progress
 
+    def test_add_in_progress_filters_placeholder(self, tracker):
+        """Test that placeholder text is filtered when adding in-progress items."""
+        # Initial progress has placeholder "No tasks in progress"
+        tracker.add_in_progress("F001: New feature")
+        progress = tracker.get_current_progress()
+        # Should contain only the new item, not the placeholder
+        assert "F001: New feature" in progress.in_progress
+        assert "No tasks in progress" not in progress.in_progress
+        assert len(progress.in_progress) == 1
+
+    def test_add_completed_filters_placeholder(self, tracker):
+        """Test that placeholder text is filtered when adding completed items."""
+        # Initial progress has placeholder "No tasks completed yet"
+        tracker.add_completed("F001: Finished feature")
+        progress = tracker.get_current_progress()
+        # Should contain only the new item, not the placeholder
+        assert "F001: Finished feature" in progress.completed
+        assert "No tasks completed yet" not in progress.completed
+
     def test_add_blocker(self, tracker):
         """Test adding a blocker."""
         tracker.add_blocker("Need API credentials")
