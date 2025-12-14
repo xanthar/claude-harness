@@ -66,6 +66,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - documentation (document.*, write.*doc) - ~9K tokens saved
   - review (review.*, audit.*, check.*) - ~17K tokens saved
 
+#### Orchestration Engine
+- **OrchestrationEngine** for coordinating automatic subagent delegation
+  - State machine: IDLE → EVALUATING → DELEGATING → WAITING → INTEGRATING
+  - Configurable thresholds, limits, and behavior settings
+  - Delegation queue management with priority ordering
+
+- **Orchestration CLI Commands** (`claude-harness orchestrate`)
+  - `orchestrate status` - Show orchestration status and metrics
+  - `orchestrate evaluate` - Evaluate current feature for delegation opportunities
+  - `orchestrate queue [ID]` - Generate delegation queue for feature
+  - `orchestrate start <ID>` - Start a queued delegation
+  - `orchestrate complete <ID>` - Mark delegation complete with summary
+  - `orchestrate reset` - Reset orchestration session
+
 #### Slash Commands Integration
 - **35 Slash Commands** for Claude Code integration
   - Commands auto-generated during `claude-harness init`

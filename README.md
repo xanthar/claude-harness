@@ -508,6 +508,19 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | `claude-harness e2e install` | Install Playwright |
 | `claude-harness e2e run` | Run E2E tests |
 | `claude-harness e2e generate ID` | Generate E2E test |
+| `claude-harness delegation status` | Show delegation status |
+| `claude-harness delegation enable/disable` | Toggle delegation |
+| `claude-harness delegation rules` | List delegation rules |
+| `claude-harness delegation suggest ID` | Get delegation suggestions |
+| `claude-harness orchestrate status` | Show orchestration status |
+| `claude-harness orchestrate evaluate` | Evaluate current feature for delegation |
+| `claude-harness orchestrate queue [ID]` | Generate delegation queue |
+| `claude-harness orchestrate start ID` | Start a delegation |
+| `claude-harness orchestrate complete ID` | Complete a delegation |
+| `claude-harness optimize status` | Show optimization status |
+| `claude-harness optimize cache-status` | Show cache statistics |
+| `claude-harness commands generate` | Generate slash commands |
+| `claude-harness commands list` | List available commands |
 
 ## Short Alias
 
