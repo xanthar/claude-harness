@@ -111,6 +111,12 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - [ ] Third-party integrations
 - [ ] Extension API
 
+#### 15. Codebase Restructuring
+- [ ] Consider reorganizing `claude_harness/` into subdirectories
+- Potential structure: `core/`, `context/`, `optimization/`, `delegation/`, `integrations/`
+- Update all imports and tests accordingly
+- Only if module count exceeds 25-30 files
+
 ---
 
 ## Completed Features
