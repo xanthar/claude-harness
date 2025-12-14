@@ -1,8 +1,6 @@
 # Claude Harness Roadmap
 
-This document outlines planned features and improvements for Claude Harness, prioritized based on user impact and integration test feedback.
-
-See [docs/INTEGRATION_TEST_REPORT.md](docs/INTEGRATION_TEST_REPORT.md) for the full test analysis.
+This document outlines planned features and improvements for Claude Harness, prioritized based on user impact.
 
 ---
 
@@ -41,90 +39,45 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ---
 
-## Version 1.3.0 - Subagent Delegation
-
-**Target:** Next minor release
-**Focus:** Context optimization through intelligent task delegation
-
-### High Priority
-
-#### 7. Subagent Delegation System
-- [x] `DelegationManager` class for managing delegation rules and tracking
-- [x] `DelegationRule` dataclass with regex pattern matching
-- [x] `DelegationConfig` dataclass with default rules
-- [x] `DelegationResult` tracking for delegation metrics
-
-#### 8. Delegation CLI Commands
-- [x] `claude-harness delegation status` - Show delegation status and metrics
-- [x] `claude-harness delegation enable/disable` - Toggle delegation globally
-- [x] `claude-harness delegation rules` - List all delegation rules
-- [x] `claude-harness delegation add-rule` - Add custom delegation rules
-- [x] `claude-harness delegation remove-rule` - Remove rules by name
-- [x] `claude-harness delegation enable-rule/disable-rule` - Toggle specific rules
-- [x] `claude-harness delegation suggest <ID>` - Get suggestions for a feature
-- [x] `claude-harness delegation auto --on/--off` - Configure auto-delegation hints
-
-#### 9. CLAUDE.md Delegation Integration
-- [x] Generate delegation section in CLAUDE.md template
-- [x] Include subagent type recommendations
-- [x] Token savings estimates per task type
-- [x] Constraint propagation to subagents
-
-### Benefits
-- **40-70% context savings** by delegating to specialized subagents
-- **Parallel execution** of independent tasks
-- **Summary-based returns** (3-5K tokens vs 25K+ full execution)
-- **Pattern-based matching** for automatic delegation suggestions
-
-### Default Delegation Rules
-| Rule | Patterns | Subagent Type | Est. Savings |
-|------|----------|---------------|--------------|
-| exploration | explore.*, find.*, search.*, investigate.* | explore | 22K tokens |
-| testing | test.*, write.*test, unit.*test, integration.*test | test | 15K tokens |
-| documentation | document.*, write.*doc, update.*readme | document | 9K tokens |
-| review | review.*, audit.*, check.*, validate.* | review | 17K tokens |
-
----
-
-## Version 1.4.0 - Advanced Features
+## Version 1.3.0 - Advanced Features
 
 **Target:** Future release
 **Focus:** Power user features and automation
 
 ### Medium Priority
 
-#### 10. Configuration Validation
+#### 5. Configuration Validation
 - [ ] `claude-harness validate` - Validate harness configuration
 - Check config.json schema
 - Verify features.json integrity
 - Check hook script permissions
 - Validate E2E setup
 
-#### 11. Export Functionality
+#### 6. Export Functionality
 - [ ] `claude-harness export features --format csv` - Export features to CSV
 - [ ] `claude-harness export progress --format json` - Export progress data
 - [ ] `claude-harness export report` - Generate full project report
 
-#### 12. Feature Dependencies
+#### 7. Feature Dependencies
 - [ ] Add `depends_on` field to features
 - Block starting feature if dependencies incomplete
 - Visual dependency tree: `claude-harness feature tree`
 
 ### Low Priority
 
-#### 13. Time Tracking
+#### 8. Time Tracking
 - [ ] Track time spent on each feature
 - Record start/stop timestamps
 - Session duration tracking
 - Time summary reports
 
-#### 14. Interactive Tutorial
+#### 9. Interactive Tutorial
 - [ ] `claude-harness tutorial` - Guided walkthrough
 - Step-by-step introduction to all commands
 - Example project setup
 - Best practices guidance
 
-#### 15. Template System
+#### 10. Template System
 - [ ] `claude-harness init --template flask` - Use predefined templates
 - Community template repository
 - Custom template creation
@@ -138,22 +91,22 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ### Planned Features
 
-#### 16. Team Collaboration
+#### 11. Team Collaboration
 - [ ] Shared progress tracking
 - [ ] Feature assignment
 - [ ] Conflict resolution for concurrent edits
 
-#### 17. CI/CD Integration
+#### 12. CI/CD Integration
 - [ ] GitHub Actions integration
 - [ ] GitLab CI templates
 - [ ] Jenkins pipeline support
 
-#### 18. Metrics Dashboard
+#### 13. Metrics Dashboard
 - [ ] Web-based dashboard
 - [ ] Feature velocity tracking
 - [ ] Session analytics
 
-#### 19. Plugin System
+#### 14. Plugin System
 - [ ] Custom hook plugins
 - [ ] Third-party integrations
 - [ ] Extension API
@@ -162,42 +115,84 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ## Completed Features
 
-### v1.1.0 (2025-12-13)
-- [x] Refresh command (`claude-harness refresh`) - Regenerate scripts without losing data
-- [x] Compaction detection in context tracker (peak_tokens, compaction_events)
-- [x] Runtime config reading in init.sh (jq-based, no more hardcoded values)
-- [x] Auto gitignore/untrack session files (context_metrics.json, session-history/)
-- [x] Data preservation on reinit (features.json, progress.md, config.json kept)
+### v1.1.0 (2025-12-14)
 
-### v1.4.0 (2025-12-12)
+#### Session Management & Context Tracking
+- [x] Session-based context tracking with unique session IDs
+- [x] Compaction detection (peak_tokens, compaction_events)
+- [x] Auto-save handoff on session exit (SessionEnd hook)
+- [x] `context session-info` and `context session-close` commands
+
+#### Discoveries Tracking
+- [x] `discovery add/list/show/search/delete` commands
+- [x] Tag-based filtering and statistics
+- [x] Discovery summary for handoffs
+
+#### Subagent Delegation System
+- [x] `DelegationManager` with rule-based task matching
+- [x] `delegation status/enable/disable/rules` commands
+- [x] `delegation add-rule/remove-rule/suggest` commands
+- [x] Default rules for exploration, testing, documentation, review
+- [x] Token savings estimation (40-70% context savings)
+- [x] CLAUDE.md delegation section generation
+
+#### Slash Commands Integration
 - [x] 35 slash commands for Claude Code integration
-- [x] `/harness-init` - Interactive initialization inside Claude Code
+- [x] `/harness-init` - Interactive initialization
 - [x] `/harness-*` commands for all harness features
 - [x] `claude-harness commands generate/list` CLI commands
-- [x] Commands auto-generated during init
 
-### v1.3.0 (2025-12-12)
-- [x] Subagent delegation system with rule-based matching
-- [x] Delegation CLI commands (status, enable, disable, rules, suggest, auto)
-- [x] CLAUDE.md delegation section generation
-- [x] Token savings estimation and metrics tracking
-- [x] Default rules for exploration, testing, documentation, review
+#### Feature Management Enhancements
+- [x] `feature info <ID>` - Detailed feature display
+- [x] `feature done <ID> <name>` - Fuzzy subtask completion
+- [x] `feature note <ID> "text"` - Timestamped notes
+- [x] `--priority` and `--search` filtering
+- [x] Bulk operations with `--yes` flag
 
-### v1.1.0 (2025-12-12)
-- [x] Feature info command (`feature info <ID>`)
-- [x] Subtask name-based completion (`feature done <ID> <name>`)
-- [x] Feature notes command (`feature note <ID> "text"`)
-- [x] Progress history command (`progress history`)
-- [x] Enhanced feature filtering (`--priority`, `--search`)
-- [x] Bulk operations (`feature start/block` with multiple IDs)
+#### Progress Tracking Enhancements
+- [x] `progress history` command with `--limit` and `--show`
+
+#### Output Control
+- [x] OutputHelper for configurable output truncation
+- [x] `output.compact_mode`, `output.max_lines`, `output.max_files_shown`
+
+#### Refresh Command
+- [x] `claude-harness refresh` - Regenerate scripts without losing data
+- [x] Runtime config reading in init.sh (jq-based)
+- [x] Auto gitignore/untrack session files
+- [x] Data preservation on reinit
 
 ### v1.0.0 (2025-12-12)
-- [x] Non-interactive initialization (`--non-interactive`)
-- [x] Feature unblock command (`feature unblock`)
-- [x] Context compression and handoff
+
+#### Core Features
+- [x] Project initialization with stack detection
+- [x] Non-interactive mode (`--non-interactive`)
+- [x] Feature management (add, start, complete, block, unblock)
+- [x] Progress tracking with session archival
+- [x] Context tracking with token estimation
+- [x] Session compression and handoff documents
+
+#### E2E Testing
+- [x] Playwright integration
+- [x] Test generation from features
+
+#### Stack Detection
+- [x] Python (Flask, Django, FastAPI)
+- [x] JavaScript/TypeScript (Express, Next.js, React, Vue)
+- [x] Database detection (PostgreSQL, MySQL, SQLite, MongoDB, Redis)
+
+#### Startup Scripts
+- [x] `scripts/init.sh` (Bash)
+- [x] `scripts/init.ps1` (PowerShell)
+
+#### Claude Code Integration
+- [x] Git safety hooks (block protected branch commits)
 - [x] Auto-progress tracking hooks
-- [x] MCP Playwright server
-- [x] Comprehensive test coverage (170 tests)
+- [x] Activity logging hooks
+
+#### MCP Server
+- [x] Playwright browser automation server
+- [x] 14 browser control tools
 
 ---
 
@@ -228,4 +223,4 @@ Found an issue or have a suggestion?
 
 ---
 
-*Last updated: 2025-12-13*
+*Last updated: 2025-12-14*
