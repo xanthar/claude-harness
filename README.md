@@ -20,6 +20,9 @@ A comprehensive harness that optimizes Claude Code sessions by addressing the fo
 - **Startup Ritual**: `init.sh` (Bash) and `init.ps1` (PowerShell) scripts
 - **Git Safety Hooks**: Block dangerous operations (commits to main, force pushes)
 - **Auto-Hooks Setup**: Creates `.claude/settings.local.json` with hooks during init
+- **Subagent Delegation**: Rule-based task delegation with token savings estimation
+- **Orchestration Engine**: Coordinate automatic subagent delegation with state machine
+- **Optimization Suite**: Exploration cache, file filtering, output compression, lazy loading
 - **E2E Testing**: Playwright integration with test generation
 - **MCP Server**: Playwright browser automation via Model Context Protocol
 - **Stack Detection**: Automatically detects your project's language, framework, database

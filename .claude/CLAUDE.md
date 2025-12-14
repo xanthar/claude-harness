@@ -63,8 +63,8 @@ tests/
 
 docs/
 ├── HOOKS.md                        # Hook configuration documentation
-├── ORCHESTRATION_UX_DESIGN.md      # Future orchestration mode design
-└── SUBAGENT_DELEGATION_RESEARCH.md # Delegation architecture research
+├── ORCHESTRATION_UX_DESIGN.md      # Orchestration design (implemented in v1.1.0)
+└── SUBAGENT_DELEGATION_RESEARCH.md # Delegation research (implemented in v1.1.0)
 ```
 
 ---
@@ -75,7 +75,7 @@ docs/
 
 | Module | Purpose |
 |--------|---------|
-| `cli.py` | Click CLI with groups: main, feature, progress, context, discovery, delegation, e2e, optimize, commands |
+| `cli.py` | Click CLI with groups: main, feature, progress, context, discovery, delegation, orchestrate, e2e, optimize, commands |
 | `initializer.py` | Interactive/non-interactive project setup, generates all harness files |
 | `detector.py` | Auto-detects language, framework, database, test framework |
 | `feature_manager.py` | Feature CRUD, status transitions, subtask management |

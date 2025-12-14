@@ -142,6 +142,21 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - [x] Token savings estimation (40-70% context savings)
 - [x] CLAUDE.md delegation section generation
 
+#### Orchestration Engine
+- [x] `OrchestrationEngine` for coordinating automatic subagent delegation
+- [x] State machine: IDLE → EVALUATING → DELEGATING → WAITING → INTEGRATING
+- [x] `orchestrate status/evaluate/queue/start/complete/reset` commands
+- [x] Configurable thresholds, limits, and behavior settings
+- [x] Delegation queue management with priority ordering
+
+#### Optimization Modules
+- [x] `ExplorationCache` for caching file content and search results
+- [x] `FileFilter` for categorizing and filtering files by relevance
+- [x] `OutputCompressor` for intelligent output truncation
+- [x] `LazyLoader` for on-demand resource loading
+- [x] `FileReadOptimizer` for optimized file reading strategies
+- [x] `optimize status/cache/prune/categorize/filter/compress` commands
+
 #### Slash Commands Integration
 - [x] 35 slash commands for Claude Code integration
 - [x] `/harness-init` - Interactive initialization
