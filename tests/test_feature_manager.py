@@ -34,6 +34,12 @@ class TestSubtask:
         assert subtask.name == "Deploy"
         assert subtask.done is False
 
+    def test_subtask_from_string(self):
+        """Test subtask deserialization from plain string (legacy format)."""
+        subtask = Subtask.from_dict("Deploy to production")
+        assert subtask.name == "Deploy to production"
+        assert subtask.done is False  # Default to not done
+
 
 class TestFeature:
     """Tests for Feature dataclass."""

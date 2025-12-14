@@ -32,7 +32,11 @@ class Subtask:
         return {"name": self.name, "done": self.done}
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Subtask":
+    def from_dict(cls, data) -> "Subtask":
+        """Create Subtask from dict or string (for backwards compatibility)."""
+        if isinstance(data, str):
+            # Handle plain string subtasks (legacy format)
+            return cls(name=data, done=False)
         return cls(name=data["name"], done=data.get("done", False))
 
 
