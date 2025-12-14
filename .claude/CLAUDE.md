@@ -13,7 +13,6 @@
 - [README.md](../README.md) - User documentation
 - [CHANGELOG.md](../CHANGELOG.md) - Version history
 - [ROADMAP.md](../ROADMAP.md) - Planned features
-- [docs/INTEGRATION_TEST_REPORT.md](../docs/INTEGRATION_TEST_REPORT.md) - Latest test results
 - [docs/HOOKS.md](../docs/HOOKS.md) - Hook configuration guide
 
 ---
@@ -62,8 +61,9 @@ tests/
 └── test_context_tracker.py
 
 docs/
-├── HOOKS.md              # Hook configuration documentation
-└── INTEGRATION_TEST_REPORT.md  # Latest integration test results
+├── HOOKS.md                        # Hook configuration documentation
+├── ORCHESTRATION_UX_DESIGN.md      # Future orchestration mode design
+└── SUBAGENT_DELEGATION_RESEARCH.md # Delegation architecture research
 ```
 
 ---
@@ -111,8 +111,8 @@ pytest tests/ -v --cov=claude_harness --cov-report=term-missing
 ```
 
 ### Current Status
-- **157 tests** all passing
-- Covers: CLI, initializer, detector, feature_manager, progress_tracker, context_tracker
+- **567 tests** all passing
+- Covers: CLI, initializer, detector, feature_manager, progress_tracker, context_tracker, delegation_manager, discoveries, and more
 
 ### Adding Tests
 - Follow existing patterns in `tests/`
@@ -151,15 +151,16 @@ refactor: simplify feature status transitions
 
 From [ROADMAP.md](../ROADMAP.md):
 
-### High Priority (v1.1.0)
-1. Feature info command - `feature info <ID>`
-2. Subtask name-based completion
-3. Feature notes command
+### Next Release (v1.2.0) - History Import & Bootstrapping
+1. Bootstrap command - Import existing work into features.json
+2. Import from documentation - Scan docs for features
+3. Git history analysis - Parse conventional commits
+4. Manual backfill helper - Add completed features with dates
 
-### Medium Priority
-4. Progress history command
-5. Enhanced feature filtering
-6. Bulk operations
+### Future (v1.3.0) - Advanced Features
+5. Configuration validation
+6. Export functionality (CSV, JSON)
+7. Feature dependencies
 
 See ROADMAP.md for full list with descriptions.
 
