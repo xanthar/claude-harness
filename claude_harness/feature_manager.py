@@ -423,6 +423,116 @@ class FeatureManager:
         features = self.list_features(status="pending")
         return features[0] if features else None
 
+    # --- Sync Methods ---
+
+    def sync_from_files(self, modified_files: List[str], auto_start: bool = True) -> dict:
+        """Sync feature/subtask status based on modified files.
+
+        Args:
+            modified_files: List of file paths that have been modified
+            auto_start: If True, auto-start next pending feature if none in progress
+
+        Returns:
+            Dict with sync results: {
+                'started': [feature_ids],
+                'subtasks_completed': [(feature_id, subtask_name)],
+                'features_completed': [feature_ids],
+                'no_match': [files]
+            }
+        """
+        results = {
+            'started': [],
+            'subtasks_completed': [],
+            'features_completed': [],
+            'no_match': []
+        }
+
+        if not modified_files:
+            return results
+
+        data = self._load()
+
+        # Get or auto-start an in_progress feature
+        in_progress = self.get_in_progress()
+        if not in_progress and auto_start:
+            next_pending = self.get_next_pending()
+            if next_pending:
+                self.start_feature(next_pending.id)
+                results['started'].append(next_pending.id)
+                in_progress = self.get_feature(next_pending.id)
+
+        if not in_progress:
+            results['no_match'] = modified_files
+            return results
+
+        # Try to match files to subtasks
+        for filepath in modified_files:
+            filepath_lower = filepath.lower()
+            filename = Path(filepath).name.lower()
+            matched = False
+
+            # Check subtasks for pattern matches
+            for subtask in in_progress.subtasks:
+                if subtask.done:
+                    continue
+
+                subtask_lower = subtask.name.lower()
+
+                # Match strategies:
+                # 1. Filename contains subtask keywords
+                # 2. Path contains subtask keywords
+                # 3. Subtask mentions the file type/name
+                keywords = self._extract_keywords(subtask_lower)
+
+                for keyword in keywords:
+                    if keyword in filename or keyword in filepath_lower:
+                        # Find subtask index and mark as done
+                        subtask_index = next(
+                            (i for i, s in enumerate(in_progress.subtasks) if s.name == subtask.name),
+                            None
+                        )
+                        if subtask_index is not None:
+                            self.complete_subtask(in_progress.id, subtask_index)
+                            results['subtasks_completed'].append((in_progress.id, subtask.name))
+                        matched = True
+                        break
+
+                if matched:
+                    break
+
+            if not matched:
+                results['no_match'].append(filepath)
+
+        # Check if all subtasks are done -> auto-complete feature
+        updated_feature = self.get_feature(in_progress.id)
+        if updated_feature and updated_feature.subtasks:
+            all_done = all(s.done for s in updated_feature.subtasks)
+            if all_done:
+                self.complete_feature(in_progress.id)
+                results['features_completed'].append(in_progress.id)
+
+        return results
+
+    def _extract_keywords(self, text: str) -> List[str]:
+        """Extract keywords from subtask text for file matching."""
+        # Common words to ignore
+        stop_words = {
+            'create', 'implement', 'add', 'write', 'update', 'fix', 'the', 'a', 'an',
+            'for', 'with', 'in', 'to', 'and', 'or', 'of', 'on', 'is', 'are', 'be',
+            'file', 'files', 'code', 'test', 'tests', 'unit', 'integration'
+        }
+
+        # Extract words, filter stop words, keep meaningful ones
+        words = text.replace('_', ' ').replace('-', ' ').replace('.', ' ').split()
+        keywords = []
+
+        for word in words:
+            word = word.strip('()[]{}.,;:')
+            if len(word) > 2 and word not in stop_words:
+                keywords.append(word)
+
+        return keywords
+
     # --- Display Methods ---
 
     def show_status(self):

@@ -133,7 +133,9 @@ class ProgressTracker:
             if line.startswith("- "):
                 # Remove checkbox if present
                 item = re.sub(r"^\[[ x]\]\s*", "", line[2:])
-                if item and item != "None" and item != "(none)":
+                # Filter out placeholder texts
+                placeholders = ("None", "(none)", "No tasks in progress", "No tasks completed yet")
+                if item and item not in placeholders:
                     items.append(item)
             elif line.startswith(("1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")):
                 # Numbered list

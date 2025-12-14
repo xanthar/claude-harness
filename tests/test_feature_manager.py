@@ -348,3 +348,105 @@ class TestGetFeatureManager:
         harness_dir.mkdir()
         manager = get_feature_manager(str(tmp_path))
         assert isinstance(manager, FeatureManager)
+
+
+class TestFeatureSync:
+    """Tests for sync_from_files functionality."""
+
+    @pytest.fixture
+    def manager_with_feature(self, tmp_path):
+        """Create a manager with a feature that has subtasks."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+        manager = FeatureManager(str(tmp_path))
+        manager.add_feature(
+            name="Database Setup",
+            subtasks=[
+                "Create models.py",
+                "Write migrations",
+                "Add schema validation",
+            ]
+        )
+        return manager
+
+    def test_sync_auto_starts_feature(self, manager_with_feature):
+        """Test that sync auto-starts the first pending feature."""
+        results = manager_with_feature.sync_from_files(
+            ["src/models.py"],
+            auto_start=True
+        )
+        assert "F-001" in results['started']
+        feature = manager_with_feature.get_feature("F-001")
+        assert feature.status == "in_progress"
+
+    def test_sync_matches_subtask_by_keyword(self, manager_with_feature):
+        """Test that files are matched to subtasks by keyword."""
+        manager_with_feature.start_feature("F-001")
+        results = manager_with_feature.sync_from_files(
+            ["src/models.py"],
+            auto_start=False
+        )
+        assert len(results['subtasks_completed']) == 1
+        assert results['subtasks_completed'][0][1] == "Create models.py"
+
+    def test_sync_matches_multiple_subtasks(self, manager_with_feature):
+        """Test matching multiple files to multiple subtasks."""
+        manager_with_feature.start_feature("F-001")
+        results = manager_with_feature.sync_from_files(
+            ["src/models.py", "migrations/001_initial.py", "src/schema.py"],
+            auto_start=False
+        )
+        # Should match models and migrations, possibly schema
+        assert len(results['subtasks_completed']) >= 2
+
+    def test_sync_no_auto_start(self, manager_with_feature):
+        """Test that auto_start=False doesn't start features."""
+        results = manager_with_feature.sync_from_files(
+            ["src/models.py"],
+            auto_start=False
+        )
+        assert results['started'] == []
+        assert results['no_match'] == ["src/models.py"]
+
+    def test_sync_empty_files(self, manager_with_feature):
+        """Test sync with empty file list."""
+        results = manager_with_feature.sync_from_files([], auto_start=True)
+        assert results['started'] == []
+        assert results['subtasks_completed'] == []
+
+    def test_sync_unmatched_files(self, manager_with_feature):
+        """Test that unmatched files are tracked."""
+        manager_with_feature.start_feature("F-001")
+        results = manager_with_feature.sync_from_files(
+            ["totally_unrelated_file.xyz"],
+            auto_start=False
+        )
+        assert "totally_unrelated_file.xyz" in results['no_match']
+
+    def test_extract_keywords(self, manager_with_feature):
+        """Test keyword extraction from subtask text."""
+        keywords = manager_with_feature._extract_keywords(
+            "implement user authentication module"
+        )
+        assert "user" in keywords
+        assert "authentication" in keywords
+        assert "module" in keywords
+        # Stop words should be filtered
+        assert "implement" not in keywords
+
+    def test_sync_auto_completes_feature(self, tmp_path):
+        """Test that feature is auto-completed when all subtasks are done."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+        manager = FeatureManager(str(tmp_path))
+        manager.add_feature(
+            name="Simple Feature",
+            subtasks=["Create config.py"]
+        )
+        manager.start_feature("F-001")
+
+        results = manager.sync_from_files(["src/config.py"])
+
+        assert "F-001" in results['features_completed']
+        feature = manager.get_feature("F-001")
+        assert feature.status == "completed"
