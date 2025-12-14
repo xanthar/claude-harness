@@ -704,6 +704,97 @@ def feature_phase(ctx, phase_name: str):
     console.print(f"[green]Set phase to: {phase_name}[/green]")
 
 
+@feature.command("sync")
+@click.option("--no-auto-start", is_flag=True, help="Don't auto-start next pending feature")
+@click.option("--dry-run", is_flag=True, help="Show what would be synced without making changes")
+@click.pass_context
+def feature_sync(ctx, no_auto_start: bool, dry_run: bool):
+    """Sync feature status from modified files in progress.md.
+
+    Matches modified files to subtasks and updates their status.
+    Auto-starts the next pending feature if none is in progress.
+
+    Examples:
+        claude-harness feature sync
+        claude-harness feature sync --dry-run
+        claude-harness feature sync --no-auto-start
+    """
+    project_path = ctx.obj["project_path"]
+    fm = FeatureManager(project_path)
+    pt = ProgressTracker(project_path)
+
+    # Get modified files from progress.md
+    progress = pt.get_current_progress()
+    modified_files = progress.files_modified
+
+    if not modified_files:
+        console.print("[yellow]No modified files found in progress.md[/yellow]")
+        return
+
+    console.print(f"[blue]Found {len(modified_files)} modified files[/blue]")
+
+    if dry_run:
+        console.print("\n[dim]Dry run - no changes will be made[/dim]")
+        # Show what would be matched
+        in_progress = fm.get_in_progress()
+        if not in_progress:
+            next_pending = fm.get_next_pending()
+            if next_pending and not no_auto_start:
+                console.print(f"[yellow]Would auto-start: {next_pending.id} - {next_pending.name}[/yellow]")
+            else:
+                console.print("[yellow]No feature in progress and auto-start disabled[/yellow]")
+                return
+            in_progress = next_pending
+
+        console.print(f"\n[bold]Feature: {in_progress.id} - {in_progress.name}[/bold]")
+        for subtask in in_progress.subtasks:
+            if subtask.done:
+                console.print(f"  [green]✓[/green] {subtask.name}")
+            else:
+                # Check if any file would match
+                keywords = fm._extract_keywords(subtask.name.lower())
+                matching_files = []
+                for f in modified_files:
+                    f_lower = f.lower()
+                    for kw in keywords:
+                        if kw in f_lower:
+                            matching_files.append(f)
+                            break
+                if matching_files:
+                    console.print(f"  [yellow]→[/yellow] {subtask.name}")
+                    for mf in matching_files[:2]:
+                        console.print(f"      [dim]matches: {mf}[/dim]")
+                else:
+                    console.print(f"  [ ] {subtask.name}")
+        return
+
+    # Perform sync
+    results = fm.sync_from_files(modified_files, auto_start=not no_auto_start)
+
+    # Report results
+    if results['started']:
+        for fid in results['started']:
+            f = fm.get_feature(fid)
+            console.print(f"[green]Auto-started: {fid} - {f.name if f else 'Unknown'}[/green]")
+
+    if results['subtasks_completed']:
+        console.print(f"\n[bold]Subtasks completed:[/bold]")
+        for fid, subtask_name in results['subtasks_completed']:
+            console.print(f"  [green]✓[/green] {fid}: {subtask_name}")
+
+    if results['features_completed']:
+        for fid in results['features_completed']:
+            console.print(f"\n[bold green]Feature completed: {fid}[/bold green]")
+
+    if not results['subtasks_completed'] and not results['started']:
+        console.print("[yellow]No matches found for modified files[/yellow]")
+
+    # Summary
+    total_matched = len(results['subtasks_completed'])
+    total_unmatched = len(results['no_match'])
+    console.print(f"\n[dim]Matched: {total_matched}, Unmatched: {total_unmatched}[/dim]")
+
+
 # --- Progress Commands ---
 
 

@@ -1982,9 +1982,9 @@ At the START of every session, BEFORE any other work:
 
 1. **Run init script:** `./scripts/init.sh`
 2. **Read progress:** `.claude-harness/progress.md`
-3. **Check features:** `.claude-harness/features.json`
+3. **Check features:** `claude-harness feature list`
 4. **Pick ONE feature** with status "pending" or continue "in_progress"
-5. **Update feature status** to "in_progress" before starting work
+5. **Start the feature:** `claude-harness feature start <ID>` (THIS IS REQUIRED!)
 
 ## SESSION END RITUAL (MANDATORY)
 
@@ -2008,6 +2008,42 @@ Before ending a session or when context is getting full:
 - Complete ALL subtasks before marking "completed"
 - Run tests before marking as complete
 - E2E validation required if e2e_enabled is true
+
+## FEATURE TRACKING COMMANDS (USE THESE!)
+
+**You MUST use these commands to track progress:**
+
+### Starting Work on a Feature
+```bash
+claude-harness feature start <ID>    # Mark feature as in_progress
+claude-harness feature list          # See available features
+```
+
+### Completing Subtasks
+```bash
+claude-harness feature done <ID> <subtask>   # Mark subtask complete (fuzzy match)
+claude-harness feature done F001 "database"  # Example: completes subtask containing "database"
+```
+
+### Completing Features
+```bash
+claude-harness feature complete <ID>  # Mark feature complete (after all subtasks done)
+claude-harness feature tests <ID>     # Mark tests as passing
+```
+
+### Syncing Progress from Files
+```bash
+claude-harness feature sync           # Auto-match modified files to subtasks
+claude-harness feature sync --dry-run # Preview what would be synced
+```
+
+### Progress Updates
+```bash
+claude-harness progress completed "Task description"  # Add completed item
+claude-harness progress wip "Current work"           # Add work in progress
+```
+
+**IMPORTANT:** Call `feature start` BEFORE working on a feature, and `feature done` AFTER completing each subtask. This ensures accurate progress tracking.
 
 ## GIT WORKFLOW
 
