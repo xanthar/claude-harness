@@ -2115,20 +2115,23 @@ exit 0
         """Build core behaviors section - concise mandatory rules."""
         return """## MANDATORY BEHAVIORS
 
+⚠️ **CRITICAL:** Do NOT use Claude's internal TodoWrite for feature/subtask tracking - use HARNESS commands only!
+
 **Session Start:**
 1. `./scripts/init.sh` → read `progress.md` → `feature list`
 2. If pending features exist: `feature start <ID>`
 3. If NO pending features: `feature add "<name>" -s "subtask1" -s "subtask2"` then `feature start <ID>`
 
-**Session End:** Update `progress.md` → `feature done <ID> <subtask>` → commit
+**During Work (after completing each subtask):**
+→ Run: `feature done <ID> "<subtask name>"` immediately after finishing each subtask
+→ Do NOT batch subtask completions - mark each one as you finish it
+
+**Session End:** Update `progress.md` → verify all subtasks marked → `feature complete <ID>` → commit
 
 **Rules:**
 - ONE feature at a time (start before work, complete after tests pass)
 - NEVER edit `features.json` manually - use CLI commands only
-- ALL subtasks must complete before feature completion
-- ALWAYS add new features via CLI before starting work on them
-- Mark subtasks done AS YOU COMPLETE THEM (not just at session end) - helps track progress if interrupted
-- Use HARNESS commands for feature/subtask tracking, NOT Claude's internal TodoWrite"""
+- ALL subtasks must be marked done before feature completion"""
 
     def _build_command_reference(self) -> str:
         """Build command reference section - compact format."""
