@@ -105,6 +105,10 @@ class HarnessConfig:
     # Discoveries
     discoveries_enabled: bool = False  # Enable knowledge discovery tracking
 
+    # Documentation
+    documentation_enabled: bool = True  # Enable documentation reminders
+    documentation_trigger: str = "feature_complete"  # When to prompt: feature_complete or session_end
+
     # Claude Code Integration
     create_claude_hooks: bool = False  # Auto-create .claude/settings.local.json with hooks
 
@@ -179,6 +183,10 @@ class HarnessConfig:
             },
             "discoveries": {
                 "enabled": self.discoveries_enabled,
+            },
+            "documentation": {
+                "enabled": self.documentation_enabled,
+                "trigger": self.documentation_trigger,
             },
         }
 
@@ -2103,6 +2111,10 @@ exit 0
         if self.config.discoveries_enabled:
             sections.append(self._build_discoveries_section())
 
+        # Conditional: Documentation (enabled by default)
+        if self.config.documentation_enabled:
+            sections.append(self._build_documentation_section())
+
         # Conditional: E2E
         if self.config.e2e_enabled:
             sections.append(self._build_e2e_section())
@@ -2144,13 +2156,28 @@ Claude Harness is a **persistent workflow system** that tracks your work across 
 → Run: `feature done <ID> "<subtask name>"` immediately after finishing each subtask
 → Do NOT batch subtask completions - mark each one as you finish it
 
-**Session End:** Update `progress.md` → verify all subtasks marked → `feature complete <ID>` → commit
+**Feature Complete (BEFORE committing):**
+1. Verify all subtasks marked with `feature done`
+2. Run tests → `feature tests <ID>` if passing
+3. **UPDATE CHANGELOG.md** (required!) - add entry under `## [Unreleased]`
+4. `feature complete <ID>` → commit
+
+**Session End:** Update `progress.md` → `context handoff` if context > 80%
+
+**Context Critical (when Claude shows < 10% remaining - FIRST TIME only):**
+→ STOP new work immediately
+→ Mark all completed subtasks with `feature done`
+→ Update CHANGELOG.md with progress so far (if not already done this feature)
+→ Run `context handoff` to save state
+→ Commit current work
+→ After compaction: check handoff, resume work (skip re-documenting same feature)
 
 **Rules:**
 - ONE feature at a time: `feature start` before work → complete subtasks one at a time with `feature done` → `feature complete` after tests pass
 - ALWAYS use `feature add` to create new features before starting work on them
 - NEVER edit `features.json` manually - use CLI commands only
-- ALL subtasks must be marked done with `feature done` before `feature complete`"""
+- ALL subtasks must be marked done with `feature done` before `feature complete`
+- ALWAYS update CHANGELOG.md before `feature complete` - this is MANDATORY"""
 
     def _build_command_reference(self) -> str:
         """Build command reference section - compact format."""
@@ -2231,6 +2258,30 @@ Auto-workflow enabled. Commands:
 
 Commands: `discovery list`, `discovery search "<query>"`"""
 
+    def _build_documentation_section(self) -> str:
+        """Build documentation reminder section."""
+        trigger = self.config.documentation_trigger
+        if trigger == "feature_complete":
+            trigger_text = "BEFORE running `feature complete <ID>`"
+        else:
+            trigger_text = "At session end"
+
+        return f"""## DOCUMENTATION (MANDATORY)
+
+**{trigger_text}, you MUST update:**
+
+1. **CHANGELOG.md** - Add entry under `## [Unreleased]`:
+   ```markdown
+   ### Added
+   - Feature description (F0XX)
+   ```
+
+2. **ROADMAP.md** - Mark feature complete if exists
+
+⚠️ **DO NOT skip this step.** Documentation must be updated BEFORE `feature complete`.
+⚠️ **If Claude shows < 10% context remaining**, update docs IMMEDIATELY before compaction.
+⚠️ **One update per feature** - don't re-document after compaction if already done for current feature."""
+
     def _build_e2e_section(self) -> str:
         """Build E2E testing section."""
         return f"""## E2E TESTING
@@ -2243,10 +2294,16 @@ Commands: `discovery list`, `discovery search "<query>"`"""
         """Build context tracking section - always shown."""
         return """## CONTEXT TRACKING
 
-Monitor token usage and generate handoffs:
-- `context show` - Current usage stats
-- `context summary` - Generate session summary
-- `context handoff` - Create handoff document"""
+**Watch Claude's context indicator** (shown in Claude Code UI):
+- **> 30% remaining**: Continue normally
+- **10-30% remaining**: Finish current subtask, wrap up soon
+- **< 10% remaining**: STOP! Follow Context Critical protocol above
+
+Commands:
+- `context show` - Harness estimation (approximate)
+- `context handoff` - Create handoff document (do this before compaction)
+
+Note: Claude's indicator is authoritative. Harness estimation is supplementary."""
 
     def _update_claude_md(self):
         """Update or create CLAUDE.md with harness integration.

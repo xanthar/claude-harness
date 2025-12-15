@@ -8,6 +8,7 @@ Commands:
 - e2e: E2E testing commands
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -31,6 +32,45 @@ from .discoveries import DiscoveryTracker, get_discovery_tracker
 
 
 console = Console()
+
+
+def _update_claude_md_from_config(project_path: Path):
+    """Helper to update CLAUDE.md after config changes."""
+    from .initializer import Initializer, HarnessConfig
+
+    harness_dir = project_path / ".claude-harness"
+    config_file = harness_dir / "config.json"
+
+    config_data = json.loads(config_file.read_text())
+
+    config = HarnessConfig(
+        project_name=config_data.get("project_name", project_path.name),
+        project_description=config_data.get("project_description", ""),
+        language=config_data.get("stack", {}).get("language", "python"),
+        framework=config_data.get("stack", {}).get("framework"),
+        database=config_data.get("stack", {}).get("database"),
+        test_framework=config_data.get("testing", {}).get("framework", "pytest"),
+        venv_path=config_data.get("paths", {}).get("venv", ".venv"),
+        port=config_data.get("startup", {}).get("port", 8000),
+        health_endpoint=config_data.get("startup", {}).get("health_endpoint", "/health"),
+        start_command=config_data.get("startup", {}).get("start_command", "python main.py"),
+        protected_branches=config_data.get("git", {}).get("protected_branches", ["main", "master"]),
+        branch_prefixes=config_data.get("git", {}).get("branch_prefixes", ["feat/", "fix/", "chore/", "docs/", "refactor/"]),
+        e2e_enabled=config_data.get("e2e", {}).get("enabled", False),
+        e2e_base_url=config_data.get("e2e", {}).get("base_url", f"http://localhost:{config_data.get('startup', {}).get('port', 8000)}"),
+        unit_test_command=config_data.get("testing", {}).get("unit_command", "pytest tests/unit/ -v"),
+        e2e_test_command=config_data.get("testing", {}).get("e2e_command", "pytest e2e/ -v"),
+        coverage_threshold=config_data.get("testing", {}).get("coverage_threshold", 80),
+        blocked_actions=config_data.get("blocked_actions", []),
+        delegation_enabled=config_data.get("delegation", {}).get("enabled", False),
+        orchestration_enabled=config_data.get("orchestration", {}).get("enabled", False),
+        discoveries_enabled=config_data.get("discoveries", {}).get("enabled", False),
+        documentation_enabled=config_data.get("documentation", {}).get("enabled", True),
+        documentation_trigger=config_data.get("documentation", {}).get("trigger", "feature_complete"),
+    )
+
+    initializer = Initializer(str(project_path), config=config)
+    initializer._update_claude_md()
 
 
 @click.group()
@@ -186,6 +226,9 @@ def refresh(ctx, path: str, update_claude_md: bool):
             orchestration_enabled=config_data.get("orchestration", {}).get("enabled", False),
             # Discoveries
             discoveries_enabled=config_data.get("discoveries", {}).get("enabled", False),
+            # Documentation
+            documentation_enabled=config_data.get("documentation", {}).get("enabled", True),
+            documentation_trigger=config_data.get("documentation", {}).get("trigger", "feature_complete"),
         )
 
         # Initialize with existing config
@@ -1376,21 +1419,24 @@ def delegation_status(ctx):
 @click.pass_context
 def delegation_enable(ctx):
     """Enable subagent delegation."""
-    project_path = ctx.obj["project_path"]
-    dm = DelegationManager(project_path)
+    project_path = Path(ctx.obj["project_path"])
+    dm = DelegationManager(str(project_path))
     dm.enable()
+    _update_claude_md_from_config(project_path)
     console.print("[green]Subagent delegation enabled[/green]")
-    console.print("[dim]Delegation hints will be included in CLAUDE.md[/dim]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 @delegation.command("disable")
 @click.pass_context
 def delegation_disable(ctx):
     """Disable subagent delegation."""
-    project_path = ctx.obj["project_path"]
-    dm = DelegationManager(project_path)
+    project_path = Path(ctx.obj["project_path"])
+    dm = DelegationManager(str(project_path))
     dm.disable()
+    _update_claude_md_from_config(project_path)
     console.print("[yellow]Subagent delegation disabled[/yellow]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 @delegation.command("rules")
@@ -2251,42 +2297,45 @@ def orchestrate_status(ctx):
 @click.pass_context
 def orchestrate_enable(ctx):
     """Enable automatic orchestration."""
-    project_path = ctx.obj["project_path"]
+    project_path = Path(ctx.obj["project_path"])
 
     # Check if initialized
-    harness_dir = Path(project_path) / ".claude-harness"
+    harness_dir = project_path / ".claude-harness"
     if not harness_dir.exists():
         console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
         sys.exit(1)
 
-    engine = get_orchestration_engine(project_path)
+    engine = get_orchestration_engine(str(project_path))
 
     # Check if delegation is enabled (orchestration depends on delegation)
-    dm = DelegationManager(project_path)
+    dm = DelegationManager(str(project_path))
     if not dm.is_enabled():
         console.print("[yellow]Warning: Delegation is disabled. Orchestration requires delegation to work.[/yellow]")
         console.print("[dim]Run 'claude-harness delegation enable' first.[/dim]")
 
     engine.enable()
+    _update_claude_md_from_config(project_path)
     console.print("[green]Orchestration enabled[/green]")
-    console.print("[dim]Run 'claude-harness refresh --update-claude-md' to update AI instructions.[/dim]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 @orchestrate.command("disable")
 @click.pass_context
 def orchestrate_disable(ctx):
     """Disable automatic orchestration."""
-    project_path = ctx.obj["project_path"]
+    project_path = Path(ctx.obj["project_path"])
 
     # Check if initialized
-    harness_dir = Path(project_path) / ".claude-harness"
+    harness_dir = project_path / ".claude-harness"
     if not harness_dir.exists():
         console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
         sys.exit(1)
 
-    engine = get_orchestration_engine(project_path)
+    engine = get_orchestration_engine(str(project_path))
     engine.disable()
+    _update_claude_md_from_config(project_path)
     console.print("[yellow]Orchestration disabled[/yellow]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 @orchestrate.command("evaluate")
@@ -2721,34 +2770,36 @@ def discovery_summary(ctx):
 @click.pass_context
 def discovery_enable(ctx):
     """Enable discoveries tracking."""
-    project_path = ctx.obj["project_path"]
-    harness_dir = Path(project_path) / ".claude-harness"
+    project_path = Path(ctx.obj["project_path"])
+    harness_dir = project_path / ".claude-harness"
 
     if not harness_dir.exists():
         console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
         sys.exit(1)
 
-    tracker = get_discovery_tracker(project_path)
+    tracker = get_discovery_tracker(str(project_path))
     tracker.enable()
+    _update_claude_md_from_config(project_path)
     console.print("[green]Discoveries tracking enabled[/green]")
-    console.print("[dim]Run 'claude-harness refresh --update-claude-md' to update AI instructions.[/dim]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 @discovery.command("disable")
 @click.pass_context
 def discovery_disable(ctx):
     """Disable discoveries tracking."""
-    project_path = ctx.obj["project_path"]
-    harness_dir = Path(project_path) / ".claude-harness"
+    project_path = Path(ctx.obj["project_path"])
+    harness_dir = project_path / ".claude-harness"
 
     if not harness_dir.exists():
         console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
         sys.exit(1)
 
-    tracker = get_discovery_tracker(project_path)
+    tracker = get_discovery_tracker(str(project_path))
     tracker.disable()
+    _update_claude_md_from_config(project_path)
     console.print("[yellow]Discoveries tracking disabled[/yellow]")
-    console.print("[dim]Run 'claude-harness refresh --update-claude-md' to update AI instructions.[/dim]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 @discovery.command("status")
@@ -2770,6 +2821,118 @@ def discovery_status(ctx):
     else:
         console.print("[yellow]Discoveries tracking: disabled[/yellow]")
         console.print("[dim]Run 'claude-harness discovery enable' to enable.[/dim]")
+
+
+# ==================== DOCUMENTATION COMMANDS ====================
+
+
+@main.group("docs")
+@click.pass_context
+def docs(ctx):
+    """Configure documentation update reminders."""
+    pass
+
+
+@docs.command("enable")
+@click.pass_context
+def docs_enable(ctx):
+    """Enable documentation reminders after feature completion."""
+    project_path = Path(ctx.obj["project_path"])
+    harness_dir = project_path / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    config_path = harness_dir / "config.json"
+    config = json.loads(config_path.read_text())
+
+    if "documentation" not in config:
+        config["documentation"] = {}
+    config["documentation"]["enabled"] = True
+
+    config_path.write_text(json.dumps(config, indent=2))
+    _update_claude_md_from_config(project_path)
+    console.print("[green]Documentation reminders enabled[/green]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
+
+
+@docs.command("disable")
+@click.pass_context
+def docs_disable(ctx):
+    """Disable documentation reminders."""
+    project_path = Path(ctx.obj["project_path"])
+    harness_dir = project_path / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    config_path = harness_dir / "config.json"
+    config = json.loads(config_path.read_text())
+
+    if "documentation" not in config:
+        config["documentation"] = {}
+    config["documentation"]["enabled"] = False
+
+    config_path.write_text(json.dumps(config, indent=2))
+    _update_claude_md_from_config(project_path)
+    console.print("[yellow]Documentation reminders disabled[/yellow]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
+
+
+@docs.command("status")
+@click.pass_context
+def docs_status(ctx):
+    """Show documentation reminder settings."""
+    project_path = ctx.obj["project_path"]
+    harness_dir = Path(project_path) / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    config_path = harness_dir / "config.json"
+    config = json.loads(config_path.read_text())
+
+    doc_config = config.get("documentation", {"enabled": True, "trigger": "feature_complete"})
+    enabled = doc_config.get("enabled", True)
+    trigger = doc_config.get("trigger", "feature_complete")
+
+    if enabled:
+        console.print(f"[green]Documentation reminders: enabled[/green]")
+        console.print(f"[dim]Trigger: {trigger}[/dim]")
+    else:
+        console.print("[yellow]Documentation reminders: disabled[/yellow]")
+        console.print("[dim]Run 'claude-harness docs enable' to enable.[/dim]")
+
+
+@docs.command("trigger")
+@click.argument("when", type=click.Choice(["feature_complete", "session_end"]))
+@click.pass_context
+def docs_trigger(ctx, when: str):
+    """Set when documentation reminders appear.
+
+    WHEN: feature_complete or session_end
+    """
+    project_path = Path(ctx.obj["project_path"])
+    harness_dir = project_path / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    config_path = harness_dir / "config.json"
+    config = json.loads(config_path.read_text())
+
+    if "documentation" not in config:
+        config["documentation"] = {}
+    config["documentation"]["trigger"] = when
+
+    config_path.write_text(json.dumps(config, indent=2))
+    _update_claude_md_from_config(project_path)
+    console.print(f"[green]Documentation trigger set to: {when}[/green]")
+    console.print("[dim]CLAUDE.md updated.[/dim]")
 
 
 if __name__ == "__main__":

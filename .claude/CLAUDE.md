@@ -75,7 +75,7 @@ docs/
 
 | Module | Purpose |
 |--------|---------|
-| `cli.py` | Click CLI with groups: main, feature, progress, context, discovery, delegation, orchestrate, e2e, optimize, commands |
+| `cli.py` | Click CLI with groups: main, feature, progress, context, discovery, delegation, orchestrate, e2e, optimize, commands, docs |
 | `initializer.py` | Interactive/non-interactive project setup, generates all harness files |
 | `detector.py` | Auto-detects language, framework, database, test framework |
 | `feature_manager.py` | Feature CRUD, status transitions, subtask management |
@@ -117,7 +117,7 @@ pytest tests/ -q --tb=line              # Quick test check
 
 ### Session End
 ```bash
-pytest tests/ -v --tb=short             # Full test suite (609 tests)
+pytest tests/ -v --tb=short             # Full test suite (631 tests)
 # Update CHANGELOG.md if significant changes
 git add -A && git commit -m "feat: ..." # Conventional commit
 git push -u origin <branch>             # Push feature branch
@@ -143,7 +143,7 @@ pytest tests/ -v -s --tb=long
 ```
 
 ### Current Status
-- **614 tests** all passing
+- **631 tests** all passing
 - Full coverage of all modules
 
 ### Test Patterns

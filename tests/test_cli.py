@@ -1008,3 +1008,120 @@ class TestDiscoveryEnableDisable:
         result = runner.invoke(main, ["discovery", "status"])
         assert result.exit_code == 0
         assert "enabled" in result.output.lower()
+
+
+
+class TestDocsEnableDisable:
+    """Tests for docs enable/disable/status/trigger commands."""
+
+    @pytest.fixture
+    def runner(self):
+        """Create a CLI test runner."""
+        return CliRunner()
+
+    @pytest.fixture
+    def initialized_project(self, tmp_path):
+        """Create a project with harness initialized."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+
+        config = {
+            "project_name": "test-project",
+            "documentation": {"enabled": True, "trigger": "feature_complete"},
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+
+        return tmp_path
+
+    def test_docs_enable_not_initialized(self, runner, tmp_path):
+        """Test docs enable when harness not initialized."""
+        import os
+        os.chdir(tmp_path)
+        result = runner.invoke(main, ["docs", "enable"])
+        assert result.exit_code == 1
+        assert "not initialized" in result.output.lower()
+
+    def test_docs_enable(self, runner, initialized_project):
+        """Test docs enable command."""
+        import os
+        os.chdir(initialized_project)
+
+        # First disable
+        runner.invoke(main, ["docs", "disable"])
+
+        # Then enable
+        result = runner.invoke(main, ["docs", "enable"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("documentation", {}).get("enabled") is True
+
+    def test_docs_disable(self, runner, initialized_project):
+        """Test docs disable command."""
+        import os
+        os.chdir(initialized_project)
+
+        result = runner.invoke(main, ["docs", "disable"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("documentation", {}).get("enabled") is False
+
+    def test_docs_status_enabled(self, runner, initialized_project):
+        """Test docs status when enabled."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["docs", "status"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+    def test_docs_status_disabled(self, runner, initialized_project):
+        """Test docs status when disabled."""
+        import os
+        os.chdir(initialized_project)
+
+        # Disable first
+        runner.invoke(main, ["docs", "disable"])
+
+        result = runner.invoke(main, ["docs", "status"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+    def test_docs_trigger_feature_complete(self, runner, initialized_project):
+        """Test docs trigger set to feature_complete."""
+        import os
+        os.chdir(initialized_project)
+
+        result = runner.invoke(main, ["docs", "trigger", "feature_complete"])
+        assert result.exit_code == 0
+        assert "feature_complete" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("documentation", {}).get("trigger") == "feature_complete"
+
+    def test_docs_trigger_session_end(self, runner, initialized_project):
+        """Test docs trigger set to session_end."""
+        import os
+        os.chdir(initialized_project)
+
+        result = runner.invoke(main, ["docs", "trigger", "session_end"])
+        assert result.exit_code == 0
+        assert "session_end" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("documentation", {}).get("trigger") == "session_end"

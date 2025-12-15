@@ -65,19 +65,26 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ### Low Priority
 
-#### 8. Time Tracking
+#### 8. Protected Branch Confirmation
+- [ ] Require explicit confirmation even when user requests protected branch operations
+- [ ] Add warning prompt: "This will [action] on protected branch [name]. Confirm? (yes/no)"
+- [ ] Currently: explicit user commands override harness rules without friction
+- [ ] Future: always warn, require confirmation, then proceed
+- [ ] Applies to: commits to main/master, force push, branch deletion
+
+#### 9. Time Tracking
 - [ ] Track time spent on each feature
 - Record start/stop timestamps
 - Session duration tracking
 - Time summary reports
 
-#### 9. Interactive Tutorial
+#### 10. Interactive Tutorial
 - [ ] `claude-harness tutorial` - Guided walkthrough
 - Step-by-step introduction to all commands
 - Example project setup
 - Best practices guidance
 
-#### 10. Template System
+#### 11. Template System
 - [ ] `claude-harness init --template flask` - Use predefined templates
 - Community template repository
 - Custom template creation
@@ -91,27 +98,27 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ### Planned Features
 
-#### 11. Team Collaboration
+#### 12. Team Collaboration
 - [ ] Shared progress tracking
 - [ ] Feature assignment
 - [ ] Conflict resolution for concurrent edits
 
-#### 12. CI/CD Integration
+#### 13. CI/CD Integration
 - [ ] GitHub Actions integration
 - [ ] GitLab CI templates
 - [ ] Jenkins pipeline support
 
-#### 13. Metrics Dashboard
+#### 14. Metrics Dashboard
 - [ ] Web-based dashboard
 - [ ] Feature velocity tracking
 - [ ] Session analytics
 
-#### 14. Plugin System
+#### 15. Plugin System
 - [ ] Custom hook plugins
 - [ ] Third-party integrations
 - [ ] Extension API
 
-#### 15. Codebase Restructuring
+#### 16. Codebase Restructuring
 - [ ] Consider reorganizing `claude_harness/` into subdirectories
 - Potential structure: `core/`, `context/`, `optimization/`, `delegation/`, `integrations/`
 - Update all imports and tests accordingly
@@ -133,8 +140,27 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - [x] Delegation section: only when `delegation_enabled: true`
 - [x] Orchestration section: only when `orchestration_enabled: true`
 - [x] Discoveries section: only when `discoveries_enabled: true`
+- [x] Documentation section: only when `documentation_enabled: true` (default: enabled)
 - [x] E2E section: only when `e2e_enabled: true`
 - [x] Context tracking section always included (core feature)
+
+#### Documentation Update Reminders (MANDATORY)
+- [x] `docs enable/disable/status/trigger` commands
+- [x] Documentation required BEFORE `feature complete`
+- [x] One update per feature rule (prevents redundant updates after compaction)
+- [x] Config fields: `documentation_enabled`, `documentation_trigger`
+
+#### Context Critical Protocol (Pre-Compaction)
+- [x] New "Context Critical" section for when Claude shows < 10% remaining
+- [x] Instructs agent: STOP → mark subtasks → update docs → handoff → commit
+- [x] FIRST TIME only per feature (skip re-documenting after compaction)
+- [x] References Claude's actual context indicator (authoritative)
+- [x] Thresholds: >30% continue, 10-30% wrap up, <10% STOP
+
+#### Auto-Update CLAUDE.md on Enable/Disable
+- [x] All enable/disable commands now auto-update CLAUDE.md immediately
+- [x] No more manual `refresh --update-claude-md` required
+- [x] Applies to: delegation, orchestration, discovery, docs commands
 
 #### Feature Toggle Commands
 - [x] `orchestrate enable/disable` - Toggle automatic orchestration
@@ -143,8 +169,8 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - [x] New config fields: `orchestration_enabled`, `discoveries_enabled`
 
 #### Tests
-- [x] 29 new tests for enable/disable commands and CLAUDE.md generation
-- [x] Total: 609 tests passing
+- [x] 51 new tests for documentation, context, and enable/disable commands
+- [x] Total: 631 tests passing
 
 ### v1.1.2 (2025-12-15)
 

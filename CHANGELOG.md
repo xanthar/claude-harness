@@ -20,8 +20,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Delegation section only appears when `delegation_enabled: true`
   - Orchestration section only appears when `orchestration_enabled: true`
   - Discoveries section only appears when `discoveries_enabled: true`
+  - Documentation section only appears when `documentation_enabled: true` (default: enabled)
   - E2E section only appears when `e2e_enabled: true`
   - Context tracking section always included (core feature)
+
+#### Documentation Update Reminders (MANDATORY)
+- `docs enable` - Enable documentation reminders (default)
+- `docs disable` - Disable documentation reminders
+- `docs status` - Show current settings
+- `docs trigger <when>` - Set trigger: `feature_complete` (default) or `session_end`
+- Documentation now **required BEFORE** `feature complete` (not after)
+- One update per feature rule - prevents redundant updates after compaction
+
+#### Context Critical Protocol (Pre-Compaction)
+- New "Context Critical" section in CLAUDE.md for when Claude shows < 10% remaining
+- Instructs agent to: STOP → mark subtasks → update docs → handoff → commit
+- FIRST TIME only per feature (skip re-documenting after compaction)
+- References Claude's actual context indicator (authoritative) vs harness estimation (supplementary)
+- Thresholds: >30% continue, 10-30% wrap up, <10% STOP
+
+#### Auto-Update CLAUDE.md on Enable/Disable
+- All enable/disable commands now auto-update CLAUDE.md immediately
+- No more manual `refresh --update-claude-md` required
+- Applies to: delegation, orchestration, discovery, docs commands
 
 #### Orchestration Enable/Disable Commands
 - `orchestrate enable` - Enable automatic orchestration
@@ -47,9 +68,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### New Config Fields
 - `orchestration_enabled` in HarnessConfig (default: false)
 - `discoveries_enabled` in HarnessConfig (default: false)
+- `documentation_enabled` in HarnessConfig (default: true)
+- `documentation_trigger` in HarnessConfig (default: "feature_complete")
 - Config sections in `config.json`:
   - `orchestration: { enabled: bool }`
   - `discoveries: { enabled: bool }`
+  - `documentation: { enabled: bool, trigger: str }`
 
 ### Changed
 - CLAUDE.md template format completely rewritten for AI optimization
@@ -59,13 +83,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `refresh` command now loads `orchestration_enabled` and `discoveries_enabled` from config
 
 ### Tests
-- Added 34 new tests for:
+- Added 51 new tests for:
   - Orchestrate enable/disable/status CLI commands (5 tests)
   - Discovery enable/disable/status CLI commands (5 tests)
+  - Documentation enable/disable/status/trigger CLI commands (8 tests)
+  - Documentation config and CLAUDE.md section (10 tests)
   - `_build_harness_section()` and helper methods (11 tests)
   - HarnessConfig new fields (8 tests)
   - Session end subtask audit hook (5 tests)
-- Total tests: 614 passing
+- Total tests: 631 passing
 
 ---
 
