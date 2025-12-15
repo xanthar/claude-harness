@@ -143,7 +143,7 @@ pytest tests/ -v -s --tb=long
 ```
 
 ### Current Status
-- **609 tests** all passing
+- **614 tests** all passing
 - Full coverage of all modules
 
 ### Test Patterns

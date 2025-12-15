@@ -833,3 +833,76 @@ class TestHarnessConfigNewFields:
 
         assert "discoveries" in data
         assert data["discoveries"]["enabled"] is False
+
+
+class TestCheckSubtasksHook:
+    """Tests for the check-subtasks.sh session end hook."""
+
+    def test_check_subtasks_hook_created(self, tmp_path):
+        """Test that check-subtasks.sh hook is created during init."""
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.run()
+
+        hook_path = tmp_path / ".claude-harness" / "hooks" / "check-subtasks.sh"
+        assert hook_path.exists()
+
+    def test_check_subtasks_hook_executable(self, tmp_path):
+        """Test that check-subtasks.sh hook is executable."""
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.run()
+
+        hook_path = tmp_path / ".claude-harness" / "hooks" / "check-subtasks.sh"
+        import os
+        assert os.access(hook_path, os.X_OK)
+
+    def test_check_subtasks_hook_content(self, tmp_path):
+        """Test check-subtasks.sh hook contains expected elements."""
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.run()
+
+        hook_path = tmp_path / ".claude-harness" / "hooks" / "check-subtasks.sh"
+        content = hook_path.read_text()
+
+        # Check key elements
+        assert "#!/bin/bash" in content
+        assert "Subtask Audit Hook" in content
+        assert "features.json" in content
+        assert "in_progress" in content
+        assert "SUBTASK REMINDER" in content
+        assert "feature done" in content
+
+    def test_check_subtasks_registered_in_settings(self, tmp_path):
+        """Test check-subtasks.sh is registered in SessionEnd hooks."""
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.run()
+
+        settings_path = tmp_path / ".claude" / "settings.local.json"
+        settings = json.loads(settings_path.read_text())
+
+        # Find check-subtasks in SessionEnd hooks
+        session_end_hooks = settings.get("hooks", {}).get("SessionEnd", [])
+        hook_commands = []
+        for entry in session_end_hooks:
+            for hook in entry.get("hooks", []):
+                hook_commands.append(hook.get("command", ""))
+
+        assert ".claude-harness/hooks/check-subtasks.sh" in hook_commands
+
+    def test_check_subtasks_runs_before_session_stop(self, tmp_path):
+        """Test check-subtasks.sh runs before session-stop.sh."""
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.run()
+
+        settings_path = tmp_path / ".claude" / "settings.local.json"
+        settings = json.loads(settings_path.read_text())
+
+        session_end_hooks = settings.get("hooks", {}).get("SessionEnd", [])
+        hook_commands = []
+        for entry in session_end_hooks:
+            for hook in entry.get("hooks", []):
+                hook_commands.append(hook.get("command", ""))
+
+        # check-subtasks should come before session-stop
+        check_idx = hook_commands.index(".claude-harness/hooks/check-subtasks.sh")
+        stop_idx = hook_commands.index(".claude-harness/hooks/session-stop.sh")
+        assert check_idx < stop_idx, "check-subtasks should run before session-stop"

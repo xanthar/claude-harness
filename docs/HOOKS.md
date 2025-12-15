@@ -144,6 +144,14 @@ Create or update `.claude/settings.local.json` in your project:
         "hooks": [
           {
             "type": "command",
+            "command": ".claude-harness/hooks/check-subtasks.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": ".claude-harness/hooks/session-stop.sh"
           }
         ]
@@ -324,6 +332,49 @@ exit 0
 ```
 
 > **Why SessionEnd instead of Stop?** The `Stop` hook only fires when Claude naturally stops generating. It does NOT fire when users type `/exit`. The `SessionEnd` hook fires on all session endings, ensuring handoff documents are always saved.
+
+### check-subtasks.sh (SessionEnd)
+
+Audits in-progress features for incomplete subtasks at session end. Runs BEFORE session-stop.sh to remind the agent to mark completed work:
+
+```bash
+#!/bin/bash
+# Claude Harness - Subtask Audit Hook
+# Checks for in-progress features with incomplete subtasks
+
+[ -f ".claude-harness/features.json" ] || exit 0
+
+python3 << 'PYTHON_SCRIPT'
+import json
+import sys
+
+try:
+    with open(".claude-harness/features.json") as f:
+        data = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(0)
+
+features = data.get("features", [])
+in_progress = [f for f in features if f.get("status") == "in_progress"]
+
+for feature in in_progress:
+    fid = feature.get("id", "?")
+    name = feature.get("name", "Unknown")
+    subtasks = feature.get("subtasks", [])
+    incomplete = [st for st in subtasks if not st.get("completed", False)]
+
+    if incomplete:
+        print(f"\n⚠️  SUBTASK REMINDER: {fid} - {name}")
+        print(f"Incomplete subtasks:")
+        for st in incomplete:
+            print(f"  ○ {st.get('name', 'Unknown')}")
+        print(f"\nMark completed with: feature done {fid} \"<subtask>\"")
+PYTHON_SCRIPT
+
+exit 0
+```
+
+This hook helps maintain accurate subtask tracking, especially useful for interrupted sessions.
 
 ## Hook Exit Codes
 

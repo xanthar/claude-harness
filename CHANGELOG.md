@@ -33,6 +33,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `discovery disable` - Disable discoveries tracking
 - `discovery status` - Show enabled/disabled state
 
+#### Session End Subtask Audit Hook
+- New `check-subtasks.sh` hook runs at session end
+- Audits in-progress features for incomplete subtasks
+- Reminds agent to mark subtasks complete before session ends
+- Shows suggested `feature done` commands for unmarked subtasks
+- Runs before `session-stop.sh` for proper sequencing
+
+#### Enhanced Mandatory Behaviors Rules
+- Added rule: "Mark subtasks done AS YOU COMPLETE THEM" - prevents batching at session end
+- Added rule: "Use HARNESS commands, NOT Claude's internal TodoWrite" - ensures proper tracking
+
 #### New Config Fields
 - `orchestration_enabled` in HarnessConfig (default: false)
 - `discoveries_enabled` in HarnessConfig (default: false)
@@ -48,12 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `refresh` command now loads `orchestration_enabled` and `discoveries_enabled` from config
 
 ### Tests
-- Added 29 new tests for:
+- Added 34 new tests for:
   - Orchestrate enable/disable/status CLI commands (5 tests)
   - Discovery enable/disable/status CLI commands (5 tests)
   - `_build_harness_section()` and helper methods (11 tests)
   - HarnessConfig new fields (8 tests)
-- Total tests: 609 passing
+  - Session end subtask audit hook (5 tests)
+- Total tests: 614 passing
 
 ---
 
