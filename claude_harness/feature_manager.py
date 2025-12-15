@@ -83,7 +83,7 @@ class Feature:
             name=data["name"],
             status=data.get("status", "pending"),
             priority=data.get("priority", 0),
-            tests_passing=data.get("tests_passing", False),
+            tests_passing=data.get("tests_passing", data.get("tests_pass", False)),
             e2e_validated=data.get("e2e_validated", False),
             subtasks=subtasks,
             notes=data.get("notes", ""),

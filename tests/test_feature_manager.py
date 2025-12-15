@@ -154,6 +154,29 @@ class TestFeature:
         assert feature.tests_passing is True
         assert len(feature.subtasks) == 1
 
+    def test_feature_from_dict_legacy_tests_pass(self):
+        """Test feature deserialization with legacy tests_pass field."""
+        data = {
+            "id": "F-003",
+            "name": "Legacy Feature",
+            "status": "completed",
+            "tests_pass": True,  # Legacy field name
+        }
+        feature = Feature.from_dict(data)
+        assert feature.tests_passing is True  # Should read from tests_pass
+
+    def test_feature_from_dict_tests_passing_takes_precedence(self):
+        """Test that tests_passing takes precedence over tests_pass."""
+        data = {
+            "id": "F-004",
+            "name": "Mixed Feature",
+            "status": "completed",
+            "tests_pass": False,
+            "tests_passing": True,  # Should take precedence
+        }
+        feature = Feature.from_dict(data)
+        assert feature.tests_passing is True
+
 
 class TestFeatureManager:
     """Tests for FeatureManager class."""
