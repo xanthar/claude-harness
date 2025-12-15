@@ -2040,14 +2040,18 @@ exit 0
         """Build core behaviors section - concise mandatory rules."""
         return """## MANDATORY BEHAVIORS
 
-**Session Start:** `./scripts/init.sh` → read `progress.md` → `feature list` → `feature start <ID>`
+**Session Start:**
+1. `./scripts/init.sh` → read `progress.md` → `feature list`
+2. If pending features exist: `feature start <ID>`
+3. If NO pending features: `feature add "<name>" -s "subtask1" -s "subtask2"` then `feature start <ID>`
 
 **Session End:** Update `progress.md` → `feature done <ID> <subtask>` → commit
 
 **Rules:**
 - ONE feature at a time (start before work, complete after tests pass)
 - NEVER edit `features.json` manually - use CLI commands only
-- ALL subtasks must complete before feature completion"""
+- ALL subtasks must complete before feature completion
+- ALWAYS add new features via CLI before starting work on them"""
 
     def _build_command_reference(self) -> str:
         """Build command reference section - compact format."""
