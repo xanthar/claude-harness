@@ -5,6 +5,58 @@ All notable changes to Claude Harness will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-12-15
+
+### Added
+
+#### Compact CLAUDE.md Template (AI-Optimized)
+- **Modular section generation** for CLAUDE.md harness integration
+  - `_build_harness_section()` method builds compact, modular content
+  - Helper methods for each section: `_build_core_behaviors()`, `_build_command_reference()`, etc.
+  - ~70% token reduction from ~1800 to ~350-550 tokens
+  - Optimized for AI comprehension over human readability
+
+- **Conditional sections** based on enabled features
+  - Delegation section only appears when `delegation_enabled: true`
+  - Orchestration section only appears when `orchestration_enabled: true`
+  - Discoveries section only appears when `discoveries_enabled: true`
+  - E2E section only appears when `e2e_enabled: true`
+  - Context tracking section always included (core feature)
+
+#### Orchestration Enable/Disable Commands
+- `orchestrate enable` - Enable automatic orchestration
+- `orchestrate disable` - Disable automatic orchestration
+- `orchestrate status` now shows enabled/disabled state at top
+
+#### Discoveries Enable/Disable Commands
+- `discovery enable` - Enable discoveries tracking
+- `discovery disable` - Disable discoveries tracking
+- `discovery status` - Show enabled/disabled state
+
+#### New Config Fields
+- `orchestration_enabled` in HarnessConfig (default: false)
+- `discoveries_enabled` in HarnessConfig (default: false)
+- Config sections in `config.json`:
+  - `orchestration: { enabled: bool }`
+  - `discoveries: { enabled: bool }`
+
+### Changed
+- CLAUDE.md template format completely rewritten for AI optimization
+  - Table format for commands instead of verbose code blocks
+  - Concise flow arrows for session rituals instead of numbered lists
+  - Single-line rules instead of multi-paragraph explanations
+- `refresh` command now loads `orchestration_enabled` and `discoveries_enabled` from config
+
+### Tests
+- Added 29 new tests for:
+  - Orchestrate enable/disable/status CLI commands (5 tests)
+  - Discovery enable/disable/status CLI commands (5 tests)
+  - `_build_harness_section()` and helper methods (11 tests)
+  - HarnessConfig new fields (8 tests)
+- Total tests: 609 passing
+
+---
+
 ## [1.1.2] - 2025-12-15
 
 ### Fixed

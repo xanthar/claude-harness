@@ -838,3 +838,173 @@ class TestE2ECommands:
         result = runner.invoke(main, ["e2e", "generate", "F-999"])
         # Either exits with error code or has error message
         assert result.exit_code != 0 or "not found" in result.output.lower() or "error" in result.output.lower()
+
+
+class TestOrchestrateEnableDisable:
+    """Tests for orchestrate enable/disable/status commands."""
+
+    @pytest.fixture
+    def runner(self):
+        """Create a CLI test runner."""
+        return CliRunner()
+
+    @pytest.fixture
+    def initialized_project(self, tmp_path):
+        """Create a project with harness initialized."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+
+        config = {
+            "project_name": "test-project",
+            "orchestration": {"enabled": False},
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+
+        return tmp_path
+
+    def test_orchestrate_enable_not_initialized(self, runner, tmp_path):
+        """Test orchestrate enable when harness not initialized."""
+        import os
+        os.chdir(tmp_path)
+        result = runner.invoke(main, ["orchestrate", "enable"])
+        assert result.exit_code == 1
+        assert "not initialized" in result.output.lower()
+
+    def test_orchestrate_enable(self, runner, initialized_project):
+        """Test orchestrate enable command."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["orchestrate", "enable"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("orchestration", {}).get("enabled") is True
+
+    def test_orchestrate_disable(self, runner, initialized_project):
+        """Test orchestrate disable command."""
+        import os
+        os.chdir(initialized_project)
+
+        # First enable
+        runner.invoke(main, ["orchestrate", "enable"])
+
+        # Then disable
+        result = runner.invoke(main, ["orchestrate", "disable"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("orchestration", {}).get("enabled") is False
+
+    def test_orchestrate_status_disabled(self, runner, initialized_project):
+        """Test orchestrate status when disabled."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["orchestrate", "status"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+    def test_orchestrate_status_enabled(self, runner, initialized_project):
+        """Test orchestrate status when enabled."""
+        import os
+        os.chdir(initialized_project)
+
+        # Enable first
+        runner.invoke(main, ["orchestrate", "enable"])
+
+        result = runner.invoke(main, ["orchestrate", "status"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+
+class TestDiscoveryEnableDisable:
+    """Tests for discovery enable/disable/status commands."""
+
+    @pytest.fixture
+    def runner(self):
+        """Create a CLI test runner."""
+        return CliRunner()
+
+    @pytest.fixture
+    def initialized_project(self, tmp_path):
+        """Create a project with harness initialized."""
+        harness_dir = tmp_path / ".claude-harness"
+        harness_dir.mkdir()
+
+        config = {
+            "project_name": "test-project",
+            "discoveries": {"enabled": False},
+        }
+        with open(harness_dir / "config.json", "w") as f:
+            json.dump(config, f)
+
+        return tmp_path
+
+    def test_discovery_enable_not_initialized(self, runner, tmp_path):
+        """Test discovery enable when harness not initialized."""
+        import os
+        os.chdir(tmp_path)
+        result = runner.invoke(main, ["discovery", "enable"])
+        assert result.exit_code == 1
+        assert "not initialized" in result.output.lower()
+
+    def test_discovery_enable(self, runner, initialized_project):
+        """Test discovery enable command."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["discovery", "enable"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("discoveries", {}).get("enabled") is True
+
+    def test_discovery_disable(self, runner, initialized_project):
+        """Test discovery disable command."""
+        import os
+        os.chdir(initialized_project)
+
+        # First enable
+        runner.invoke(main, ["discovery", "enable"])
+
+        # Then disable
+        result = runner.invoke(main, ["discovery", "disable"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+        # Verify config was updated
+        config_path = initialized_project / ".claude-harness" / "config.json"
+        with open(config_path) as f:
+            config = json.load(f)
+        assert config.get("discoveries", {}).get("enabled") is False
+
+    def test_discovery_status_disabled(self, runner, initialized_project):
+        """Test discovery status when disabled."""
+        import os
+        os.chdir(initialized_project)
+        result = runner.invoke(main, ["discovery", "status"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+    def test_discovery_status_enabled(self, runner, initialized_project):
+        """Test discovery status when enabled."""
+        import os
+        os.chdir(initialized_project)
+
+        # Enable first
+        runner.invoke(main, ["discovery", "enable"])
+
+        result = runner.invoke(main, ["discovery", "status"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()

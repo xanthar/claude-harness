@@ -99,6 +99,12 @@ class HarnessConfig:
     delegation_auto: bool = False  # Auto-generate delegation hints in CLAUDE.md
     delegation_parallel_limit: int = 3  # Max concurrent subagent suggestions
 
+    # Orchestration
+    orchestration_enabled: bool = False  # Enable automatic task orchestration
+
+    # Discoveries
+    discoveries_enabled: bool = False  # Enable knowledge discovery tracking
+
     # Claude Code Integration
     create_claude_hooks: bool = False  # Auto-create .claude/settings.local.json with hooks
 
@@ -167,6 +173,12 @@ class HarnessConfig:
                 "enabled": self.delegation_enabled,
                 "auto_delegate": self.delegation_auto,
                 "parallel_limit": self.delegation_parallel_limit,
+            },
+            "orchestration": {
+                "enabled": self.orchestration_enabled,
+            },
+            "discoveries": {
+                "enabled": self.discoveries_enabled,
             },
         }
 
@@ -1972,177 +1984,172 @@ exit 0
                 json.dump(hooks_config, f, indent=2)
             console.print(f"  [green]Created:[/green] .claude/settings.local.json")
 
+    def _build_harness_section(self) -> str:
+        """Build compact CLAUDE.md harness section optimized for AI comprehension.
+
+        Design principles:
+        - Concise rules over verbose explanations
+        - Command reference over examples
+        - Conditional sections based on enabled features
+        - ~350-550 tokens target (down from ~1800)
+
+        Returns:
+            Formatted harness section string.
+        """
+        sections = []
+
+        # Header
+        sections.append("# CLAUDE HARNESS INTEGRATION")
+
+        # Core behaviors - concise mandatory rules
+        sections.append(self._build_core_behaviors())
+
+        # Command reference - compact table format
+        sections.append(self._build_command_reference())
+
+        # Git rules
+        sections.append(self._build_git_rules())
+
+        # Config reference
+        sections.append(self._build_config_reference())
+
+        # Conditional: Delegation
+        if self.config.delegation_enabled:
+            sections.append(self._build_delegation_section())
+
+        # Conditional: Orchestration
+        if self.config.orchestration_enabled:
+            sections.append(self._build_orchestration_section())
+
+        # Conditional: Discoveries
+        if self.config.discoveries_enabled:
+            sections.append(self._build_discoveries_section())
+
+        # Conditional: E2E
+        if self.config.e2e_enabled:
+            sections.append(self._build_e2e_section())
+
+        # Context commands - always show these
+        sections.append(self._build_context_section())
+
+        sections.append("---")
+
+        return "\n\n".join(sections)
+
+    def _build_core_behaviors(self) -> str:
+        """Build core behaviors section - concise mandatory rules."""
+        return """## MANDATORY BEHAVIORS
+
+**Session Start:** `./scripts/init.sh` → read `progress.md` → `feature list` → `feature start <ID>`
+
+**Session End:** Update `progress.md` → `feature done <ID> <subtask>` → commit
+
+**Rules:**
+- ONE feature at a time (start before work, complete after tests pass)
+- NEVER edit `features.json` manually - use CLI commands only
+- ALL subtasks must complete before feature completion"""
+
+    def _build_command_reference(self) -> str:
+        """Build command reference section - compact format."""
+        return """## COMMANDS
+
+| Action | Command |
+|--------|---------|
+| List features | `feature list` |
+| Start feature | `feature start <ID>` |
+| Complete subtask | `feature done <ID> <subtask>` |
+| Mark tests pass | `feature tests <ID>` |
+| Complete feature | `feature complete <ID>` |
+| Add feature | `feature add "<name>" [-p priority] [-s subtask]` |
+| Sync progress | `feature sync [--dry-run]` |
+| Add completed | `progress completed "<desc>"` |
+| Add WIP | `progress wip "<desc>"` |
+
+All commands: `claude-harness <command>`"""
+
+    def _build_git_rules(self) -> str:
+        """Build git rules section."""
+        blocked = ", ".join(self.config.blocked_actions) if self.config.blocked_actions else "(none)"
+        return f"""## GIT RULES
+
+- **Protected branches:** {", ".join(self.config.protected_branches)}
+- **Branch prefixes:** {", ".join(self.config.branch_prefixes)}
+- **Blocked actions:** {blocked}
+- Verify branch before commits: `git branch --show-current`"""
+
+    def _build_config_reference(self) -> str:
+        """Build config reference section."""
+        return f"""## CONFIG
+
+- Port: {self.config.port} | Health: {self.config.health_endpoint}
+- Start: `{self.config.start_command}`
+- Test: `{self.config.unit_test_command}` (coverage: {self.config.coverage_threshold}%)"""
+
+    def _build_delegation_section(self) -> str:
+        """Build delegation section - compact format."""
+        return """## DELEGATION
+
+Delegate to preserve context. Use Task tool for:
+- `explore`: File discovery, codebase analysis
+- `test`: Unit/E2E tests
+- `document`: READMEs, docs
+- `review`: Security, performance audits
+
+Keep in main: Core implementation, user interaction, commits.
+
+Workflow: `delegation suggest <ID>` → Task tool → summarize (<500 words)"""
+
+    def _build_orchestration_section(self) -> str:
+        """Build orchestration section - compact format."""
+        return """## ORCHESTRATION
+
+Auto-workflow enabled. Commands:
+- `orchestrate run <FEATURE_ID>` - Execute workflow
+- `orchestrate plan <FEATURE_ID>` - Preview steps
+- `orchestrate status` - Current state"""
+
+    def _build_discoveries_section(self) -> str:
+        """Build discoveries section - compact format."""
+        return """## DISCOVERIES
+
+Track findings and requirements. Commands:
+- `discovery add "<summary>" [-t tag]` - Record finding
+- `discovery list [--tag TAG]` - List all
+- `discovery search "<query>"` - Search"""
+
+    def _build_e2e_section(self) -> str:
+        """Build E2E testing section."""
+        return f"""## E2E TESTING
+
+- Command: `{self.config.e2e_test_command}`
+- Base URL: {self.config.e2e_base_url}
+- E2E validation required before feature completion"""
+
+    def _build_context_section(self) -> str:
+        """Build context tracking section - always shown."""
+        return """## CONTEXT TRACKING
+
+Monitor token usage and generate handoffs:
+- `context show` - Current usage stats
+- `context summary` - Generate session summary
+- `context handoff` - Create handoff document"""
+
     def _update_claude_md(self):
-        """Update or create CLAUDE.md with harness integration."""
+        """Update or create CLAUDE.md with harness integration.
+
+        Uses a compact, modular format optimized for AI comprehension:
+        - Core behaviors as concise rules
+        - Commands as reference table
+        - Conditional sections based on enabled features
+        - Minimal redundancy
+        """
         claude_dir = self.project_path / ".claude"
         claude_dir.mkdir(exist_ok=True)
 
         claude_md_path = claude_dir / "CLAUDE.md"
 
-        harness_section = f'''
-# CLAUDE HARNESS INTEGRATION
-
-## SESSION START RITUAL (MANDATORY)
-
-At the START of every session, BEFORE any other work:
-
-1. **Run init script:** `./scripts/init.sh`
-2. **Read progress:** `.claude-harness/progress.md`
-3. **Check features:** `claude-harness feature list`
-4. **Pick ONE feature** with status "pending" or continue "in_progress"
-5. **Start the feature:** `claude-harness feature start <ID>` (THIS IS REQUIRED!)
-
-## SESSION END RITUAL (MANDATORY)
-
-Before ending a session or when context is getting full:
-
-1. **Update progress.md** with:
-   - What was completed
-   - Current work in progress
-   - Blockers or issues
-   - Next steps for the next session
-   - Files modified
-
-2. **Update feature status using CLI commands** (see FEATURE TRACKING COMMANDS below):
-   - `claude-harness feature done <ID> <subtask>` for completed subtasks
-   - `claude-harness feature tests <ID>` when tests pass
-   - `claude-harness feature complete <ID>` when feature is done
-
-3. **Commit work** if appropriate
-
-**IMPORTANT:** NEVER manually edit `.claude-harness/features.json` - always use CLI commands to ensure correct data structure.
-
-## ONE FEATURE AT A TIME
-
-- ALWAYS work on exactly ONE feature from features.json
-- Mark it as "in_progress" before starting
-- Complete ALL subtasks before marking "completed"
-- Run tests before marking as complete{chr(10) + "- E2E validation required before completion" if self.config.e2e_enabled else ""}
-
-## FEATURE TRACKING COMMANDS (USE THESE!)
-
-**You MUST use these commands to track progress. NEVER manually edit features.json.**
-
-### Adding New Features
-```bash
-claude-harness feature add "<name>"                    # Add a new feature
-claude-harness feature add "<name>" -p 1              # Add with priority (lower = higher)
-claude-harness feature add "<name>" -s "Subtask 1"    # Add with subtasks
-```
-
-### Starting Work on a Feature
-```bash
-claude-harness feature start <ID>    # Mark feature as in_progress
-claude-harness feature list          # See available features
-```
-
-### Completing Subtasks
-```bash
-claude-harness feature done <ID> <subtask>   # Mark subtask complete (fuzzy match)
-claude-harness feature done F001 "database"  # Example: completes subtask containing "database"
-```
-
-### Completing Features
-```bash
-claude-harness feature complete <ID>  # Mark feature complete (after all subtasks done)
-claude-harness feature tests <ID>     # Mark tests as passing
-```
-
-### Syncing Progress from Files
-```bash
-claude-harness feature sync           # Auto-match modified files to subtasks
-claude-harness feature sync --dry-run # Preview what would be synced
-```
-
-### Progress Updates
-```bash
-claude-harness progress completed "Task description"  # Add completed item
-claude-harness progress wip "Current work"           # Add work in progress
-```
-
-**IMPORTANT:** Call `feature start` BEFORE working on a feature, and `feature done` AFTER completing each subtask. This ensures accurate progress tracking.
-
-## GIT WORKFLOW
-
-- **NEVER commit to:** {", ".join(self.config.protected_branches)}
-- **Branch naming:** {", ".join(self.config.branch_prefixes)}
-- **ALWAYS verify branch:** `git branch --show-current`
-- **Require confirmation** before merging to protected branches
-
-## BLOCKED ACTIONS
-
-The following are blocked by harness hooks:
-{chr(10).join(f"- {action}" for action in self.config.blocked_actions)}
-
-## TESTING REQUIREMENTS
-
-- Unit tests: `{self.config.unit_test_command}`{chr(10) + "- E2E tests: `" + self.config.e2e_test_command + "`" if self.config.e2e_enabled else ""}
-- Coverage threshold: {self.config.coverage_threshold}%
-- Features are NOT complete until tests pass
-
-## PROJECT QUICK REFERENCE
-
-- **Port:** {self.config.port}
-- **Health endpoint:** {self.config.health_endpoint}
-- **Start command:** `{self.config.start_command}`
-- **Test framework:** {self.config.test_framework}
-
----
-'''
-
-        # Add delegation section if enabled
-        if self.config.delegation_enabled:
-            delegation_section = '''
-## SUBAGENT DELEGATION
-
-This project uses subagent delegation to preserve main agent context.
-
-### When to Delegate (use Task tool)
-
-**Delegate these tasks to specialized subagents:**
-- **Exploration** (`explore` subagent): File discovery, codebase analysis, pattern finding
-- **Testing** (`test` subagent): Unit tests, E2E tests, integration tests
-- **Documentation** (`document` subagent): READMEs, API docs, code comments
-- **Review** (`review` subagent): Security audits, performance analysis, code review
-
-**Keep in main agent:**
-- Core feature implementation requiring integration decisions
-- User interaction and clarification
-- Final validation and commits
-- Complex multi-file changes
-
-### Delegation Workflow
-
-1. Check subtasks with: `claude-harness delegation suggest <FEATURE_ID>`
-2. For delegatable tasks, use the Task tool with structured prompts
-3. Summarize subagent results concisely (under 500 words)
-4. Continue with main implementation
-
-### Delegation Prompt Template
-
-When using Task tool for delegation:
-
-```
-Feature: [feature_name] (ID: [feature_id])
-Subtask: [subtask_name]
-
-Context:
-- Relevant files: [list key files]
-- Current progress: [brief status]
-
-Task: [detailed description]
-
-Constraints:
-- Keep summary under 500 words
-- Report absolute file paths
-- Include line numbers when relevant
-
-Output: YAML summary with: accomplishments, files, decisions, issues, next_steps
-```
-
----
-'''
-            harness_section += delegation_section
+        # Build harness section with modular components
+        harness_section = self._build_harness_section()
 
         if claude_md_path.exists():
             # Append to existing
