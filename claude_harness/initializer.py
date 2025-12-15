@@ -2192,15 +2192,18 @@ All commands: `claude-harness <command>`"""
         """Build delegation section - compact format."""
         return """## DELEGATION
 
-Delegate to preserve context. Use Task tool for:
-- `explore`: File discovery, codebase analysis
-- `test`: Unit/E2E tests
-- `document`: READMEs, docs
-- `review`: Security, performance audits
+**When to delegate (preserves your context):**
+→ Writing tests: Delegate to `test` subagent after implementing code
+→ Exploring codebase: Delegate to `explore` subagent for file discovery
+→ Documentation: Delegate to `document` subagent for READMEs
+→ Code review: Delegate to `review` subagent for security/performance
 
-Keep in main: Core implementation, user interaction, commits.
+**Keep in main agent:** Core implementation, user interaction, git commits
 
-Workflow: `delegation suggest <ID>` → Task tool → summarize (<500 words)"""
+**Workflow:**
+1. After implementing code: `delegation suggest <ID>` to see what to delegate
+2. Use Task tool with appropriate subagent_type
+3. Summarize results (<500 words) back to main context"""
 
     def _build_orchestration_section(self) -> str:
         """Build orchestration section - compact format."""
@@ -2215,10 +2218,18 @@ Auto-workflow enabled. Commands:
         """Build discoveries section - compact format."""
         return """## DISCOVERIES
 
-Track findings and requirements. Commands:
-- `discovery add "<summary>" [-t tag]` - Record finding
-- `discovery list [--tag TAG]` - List all
-- `discovery search "<query>"` - Search"""
+**Record important findings for future sessions:**
+→ Architectural decisions: `discovery add "Chose X over Y because..." -t architecture`
+→ Gotchas/bugs found: `discovery add "Watch out for X when..." -t gotcha`
+→ Dependencies: `discovery add "Requires X to be configured..." -t dependency`
+→ Performance notes: `discovery add "This is slow because..." -t performance`
+
+**When to add discoveries:**
+- Found unexpected behavior or edge case
+- Made a design decision with tradeoffs
+- Discovered something future sessions should know
+
+Commands: `discovery list`, `discovery search "<query>"`"""
 
     def _build_e2e_section(self) -> str:
         """Build E2E testing section."""
