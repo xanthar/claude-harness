@@ -2130,6 +2130,7 @@ exit 0
 
 **Rules:**
 - ONE feature at a time: `feature start` before work → complete subtasks one at a time with `feature done` → `feature complete` after tests pass
+- ALWAYS use `feature add` to create new features before starting work on them
 - NEVER edit `features.json` manually - use CLI commands only
 - ALL subtasks must be marked done with `feature done` before `feature complete`"""
 
