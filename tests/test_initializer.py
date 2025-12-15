@@ -775,8 +775,8 @@ class TestBuildHarnessSection:
         estimated_tokens = len(section) / 4
 
         # Target is ~500-700 tokens for base + delegation + overview
-        # Allow margin for overview section (improves agent compliance)
-        assert estimated_tokens < 1000, f"Section too large: {estimated_tokens} estimated tokens"
+        # Allow margin for overview, documentation, and context critical sections
+        assert estimated_tokens < 1300, f"Section too large: {estimated_tokens} estimated tokens"
 
 
 class TestHarnessConfigNewFields:
@@ -833,6 +833,91 @@ class TestHarnessConfigNewFields:
 
         assert "discoveries" in data
         assert data["discoveries"]["enabled"] is False
+
+
+class TestDocumentationConfig:
+    """Tests for documentation config fields and CLAUDE.md section."""
+
+    def test_documentation_enabled_default(self):
+        """Test documentation_enabled defaults to True."""
+        config = HarnessConfig()
+        assert config.documentation_enabled is True
+
+    def test_documentation_trigger_default(self):
+        """Test documentation_trigger defaults to feature_complete."""
+        config = HarnessConfig()
+        assert config.documentation_trigger == "feature_complete"
+
+    def test_documentation_enabled_custom(self):
+        """Test documentation_enabled can be set to False."""
+        config = HarnessConfig(documentation_enabled=False)
+        assert config.documentation_enabled is False
+
+    def test_documentation_trigger_custom(self):
+        """Test documentation_trigger can be set to session_end."""
+        config = HarnessConfig(documentation_trigger="session_end")
+        assert config.documentation_trigger == "session_end"
+
+    def test_to_dict_includes_documentation(self):
+        """Test to_dict includes documentation section."""
+        config = HarnessConfig(documentation_enabled=True, documentation_trigger="feature_complete")
+        data = config.to_dict()
+
+        assert "documentation" in data
+        assert data["documentation"]["enabled"] is True
+        assert data["documentation"]["trigger"] == "feature_complete"
+
+    def test_to_dict_documentation_disabled(self):
+        """Test to_dict with documentation disabled."""
+        config = HarnessConfig(documentation_enabled=False)
+        data = config.to_dict()
+
+        assert "documentation" in data
+        assert data["documentation"]["enabled"] is False
+
+    def test_build_documentation_section_feature_complete(self, tmp_path):
+        """Test _build_documentation_section with feature_complete trigger."""
+        config = HarnessConfig(documentation_enabled=True, documentation_trigger="feature_complete")
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.config = config
+
+        section = initializer._build_documentation_section()
+
+        assert "DOCUMENTATION (MANDATORY)" in section
+        assert "BEFORE running `feature complete <ID>`" in section
+        assert "CHANGELOG.md" in section
+        assert "ROADMAP.md" in section
+
+    def test_build_documentation_section_session_end(self, tmp_path):
+        """Test _build_documentation_section with session_end trigger."""
+        config = HarnessConfig(documentation_enabled=True, documentation_trigger="session_end")
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.config = config
+
+        section = initializer._build_documentation_section()
+
+        assert "At session end" in section
+        assert "CHANGELOG.md" in section
+
+    def test_harness_section_includes_documentation_when_enabled(self, tmp_path):
+        """Test _build_harness_section includes documentation when enabled."""
+        config = HarnessConfig(documentation_enabled=True)
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.config = config
+
+        section = initializer._build_harness_section()
+
+        assert "DOCUMENTATION (MANDATORY)" in section
+
+    def test_harness_section_excludes_documentation_when_disabled(self, tmp_path):
+        """Test _build_harness_section excludes documentation when disabled."""
+        config = HarnessConfig(documentation_enabled=False)
+        initializer = Initializer(str(tmp_path), non_interactive=True)
+        initializer.config = config
+
+        section = initializer._build_harness_section()
+
+        assert "DOCUMENTATION (MANDATORY)" not in section
 
 
 class TestCheckSubtasksHook:
