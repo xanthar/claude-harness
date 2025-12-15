@@ -77,8 +77,51 @@ class DiscoveryTracker:
             project_path: Path to project root.
         """
         self.project_path = Path(project_path).resolve()
-        self.discoveries_file = self.project_path / ".claude-harness" / "discoveries.json"
+        self.harness_dir = self.project_path / ".claude-harness"
+        self.discoveries_file = self.harness_dir / "discoveries.json"
+        self.config_file = self.harness_dir / "config.json"
         self._data: Optional[Dict[str, Any]] = None
+
+    def _load_config_enabled(self) -> bool:
+        """Load enabled state from config.json."""
+        if not self.config_file.exists():
+            return False
+
+        try:
+            with open(self.config_file) as f:
+                data = json.load(f)
+            return data.get("discoveries", {}).get("enabled", False)
+        except (json.JSONDecodeError, IOError):
+            return False
+
+    def _save_config_enabled(self, enabled: bool):
+        """Save enabled state to config.json."""
+        self.harness_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.config_file.exists():
+            with open(self.config_file) as f:
+                data = json.load(f)
+        else:
+            data = {}
+
+        if "discoveries" not in data:
+            data["discoveries"] = {}
+        data["discoveries"]["enabled"] = enabled
+
+        with open(self.config_file, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def is_enabled(self) -> bool:
+        """Check if discoveries tracking is enabled."""
+        return self._load_config_enabled()
+
+    def enable(self):
+        """Enable discoveries tracking."""
+        self._save_config_enabled(True)
+
+    def disable(self):
+        """Disable discoveries tracking."""
+        self._save_config_enabled(False)
 
     def _load_data(self) -> Dict[str, Any]:
         """Load discoveries from file."""

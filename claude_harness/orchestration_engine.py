@@ -50,6 +50,9 @@ class OrchestrationState(Enum):
 class OrchestrationConfig:
     """Configuration for orchestration behavior."""
 
+    # Enable/disable
+    enabled: bool = False                       # Master toggle for orchestration
+
     # Safety limits
     max_delegations_per_feature: int = 5        # Max delegations for single feature
     max_delegations_per_session: int = 20       # Max total delegations in session
@@ -67,6 +70,7 @@ class OrchestrationConfig:
 
     def to_dict(self) -> dict:
         return {
+            "enabled": self.enabled,
             "max_delegations_per_feature": self.max_delegations_per_feature,
             "max_delegations_per_session": self.max_delegations_per_session,
             "delegation_cooldown_seconds": self.delegation_cooldown_seconds,
@@ -81,6 +85,7 @@ class OrchestrationConfig:
     @classmethod
     def from_dict(cls, data: dict) -> "OrchestrationConfig":
         return cls(
+            enabled=data.get("enabled", False),
             max_delegations_per_feature=data.get("max_delegations_per_feature", 5),
             max_delegations_per_session=data.get("max_delegations_per_session", 20),
             delegation_cooldown_seconds=data.get("delegation_cooldown_seconds", 60),
@@ -354,6 +359,22 @@ class OrchestrationEngine:
 
         with open(self.config_file, "w") as f:
             json.dump(data, f, indent=2)
+
+    def is_enabled(self) -> bool:
+        """Check if orchestration is enabled."""
+        return self._load_config().enabled
+
+    def enable(self):
+        """Enable orchestration."""
+        config = self._load_config()
+        config.enabled = True
+        self._save_config()
+
+    def disable(self):
+        """Disable orchestration."""
+        config = self._load_config()
+        config.enabled = False
+        self._save_config()
 
     def _load_status(self) -> OrchestrationStatus:
         """Load orchestration status from state file."""

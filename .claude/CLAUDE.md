@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Claude Harness** (v1.1.0) is an AI workflow optimization tool for Claude Code that addresses four common failures:
+**Claude Harness** (v1.2.0) is an AI workflow optimization tool for Claude Code that addresses four common failures:
 1. Early "done" declarations → Feature tracking with subtasks
 2. Messy repositories → Git safety hooks and progress logging
 3. Lack of real testing → E2E test generation and validation
@@ -21,7 +21,7 @@
 
 ```
 claude_harness/
-├── __init__.py            # Version and package info (v1.1.0)
+├── __init__.py            # Version and package info (v1.2.0)
 ├── cli.py                 # Click CLI commands (main entry point)
 ├── initializer.py         # Project initialization wizard
 ├── detector.py            # Stack detection (language, framework, etc.)
@@ -117,7 +117,7 @@ pytest tests/ -q --tb=line              # Quick test check
 
 ### Session End
 ```bash
-pytest tests/ -v --tb=short             # Full test suite (567 tests)
+pytest tests/ -v --tb=short             # Full test suite (609 tests)
 # Update CHANGELOG.md if significant changes
 git add -A && git commit -m "feat: ..." # Conventional commit
 git push -u origin <branch>             # Push feature branch
@@ -143,7 +143,7 @@ pytest tests/ -v -s --tb=long
 ```
 
 ### Current Status
-- **567 tests** all passing
+- **609 tests** all passing
 - Full coverage of all modules
 
 ### Test Patterns
@@ -162,8 +162,9 @@ pytest tests/ -v -s --tb=long
 | `feature` | list, add, start, complete, block, unblock, info, note, done, tests, e2e-pass |
 | `progress` | show, completed, wip, blocker, file, new-session, history |
 | `context` | show, reset, budget, start-task, end-task, summary, handoff, compress, metadata, session-info, session-close |
-| `discovery` | add, list, show, search, delete, tags, stats, summary |
+| `discovery` | add, list, show, search, delete, tags, stats, summary, enable, disable, status |
 | `delegation` | status, enable, disable, rules, add-rule, remove-rule, suggest, auto |
+| `orchestrate` | status, enable, disable, evaluate, queue, start, complete, reset, plan, run |
 | `e2e` | install, run, generate |
 | `optimize` | status, cache-status, cache-clear, cache-prune |
 | `commands` | generate, list |
@@ -237,13 +238,13 @@ chore: maintenance tasks
 
 From [ROADMAP.md](../ROADMAP.md):
 
-### v1.2.0 - History Import & Bootstrapping
+### v1.3.0 - History Import & Bootstrapping
 - Bootstrap command - Import existing work
 - Import from documentation
 - Git history analysis
 - Manual backfill helper
 
-### v1.3.0 - Advanced Features
+### v1.4.0 - Advanced Features
 - Configuration validation
 - Export functionality
 - Feature dependencies

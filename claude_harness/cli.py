@@ -182,6 +182,10 @@ def refresh(ctx, path: str, update_claude_md: bool):
             ]),
             # Delegation
             delegation_enabled=config_data.get("delegation", {}).get("enabled", False),
+            # Orchestration
+            orchestration_enabled=config_data.get("orchestration", {}).get("enabled", False),
+            # Discoveries
+            discoveries_enabled=config_data.get("discoveries", {}).get("enabled", False),
         )
 
         # Initialize with existing config
@@ -2178,7 +2182,17 @@ def orchestrate_status(ctx):
         sys.exit(1)
 
     engine = get_orchestration_engine(project_path)
+    is_enabled = engine.is_enabled()
     status = engine.get_status()
+
+    # Enabled/Disabled display
+    console.print()
+    console.print("[bold]Orchestration Engine[/bold]")
+    if is_enabled:
+        console.print("  [green]Status: enabled[/green]")
+    else:
+        console.print("  [yellow]Status: disabled[/yellow]")
+        console.print("[dim]  Run 'claude-harness orchestrate enable' to enable.[/dim]")
 
     # State display
     state = status.get("state", "idle")
@@ -2191,8 +2205,6 @@ def orchestrate_status(ctx):
     }
     state_color = state_colors.get(state, "white")
 
-    console.print()
-    console.print("[bold]Orchestration Engine[/bold]")
     console.print(f"  State: [{state_color}]{state.upper()}[/{state_color}]")
     console.print(
         f"  Delegation available: "
@@ -2233,6 +2245,48 @@ def orchestrate_status(ctx):
             console.print(f"  [dim]... and {len(queued) - 5} more[/dim]")
 
     console.print()
+
+
+@orchestrate.command("enable")
+@click.pass_context
+def orchestrate_enable(ctx):
+    """Enable automatic orchestration."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+
+    # Check if delegation is enabled (orchestration depends on delegation)
+    dm = DelegationManager(project_path)
+    if not dm.is_enabled():
+        console.print("[yellow]Warning: Delegation is disabled. Orchestration requires delegation to work.[/yellow]")
+        console.print("[dim]Run 'claude-harness delegation enable' first.[/dim]")
+
+    engine.enable()
+    console.print("[green]Orchestration enabled[/green]")
+    console.print("[dim]Run 'claude-harness refresh --update-claude-md' to update AI instructions.[/dim]")
+
+
+@orchestrate.command("disable")
+@click.pass_context
+def orchestrate_disable(ctx):
+    """Disable automatic orchestration."""
+    project_path = ctx.obj["project_path"]
+
+    # Check if initialized
+    harness_dir = Path(project_path) / ".claude-harness"
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    engine = get_orchestration_engine(project_path)
+    engine.disable()
+    console.print("[yellow]Orchestration disabled[/yellow]")
 
 
 @orchestrate.command("evaluate")
@@ -2661,6 +2715,61 @@ def discovery_summary(ctx):
         console.print(summary)
     else:
         console.print("[dim]No discoveries to summarize.[/dim]")
+
+
+@discovery.command("enable")
+@click.pass_context
+def discovery_enable(ctx):
+    """Enable discoveries tracking."""
+    project_path = ctx.obj["project_path"]
+    harness_dir = Path(project_path) / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    tracker = get_discovery_tracker(project_path)
+    tracker.enable()
+    console.print("[green]Discoveries tracking enabled[/green]")
+    console.print("[dim]Run 'claude-harness refresh --update-claude-md' to update AI instructions.[/dim]")
+
+
+@discovery.command("disable")
+@click.pass_context
+def discovery_disable(ctx):
+    """Disable discoveries tracking."""
+    project_path = ctx.obj["project_path"]
+    harness_dir = Path(project_path) / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    tracker = get_discovery_tracker(project_path)
+    tracker.disable()
+    console.print("[yellow]Discoveries tracking disabled[/yellow]")
+    console.print("[dim]Run 'claude-harness refresh --update-claude-md' to update AI instructions.[/dim]")
+
+
+@discovery.command("status")
+@click.pass_context
+def discovery_status(ctx):
+    """Show whether discoveries tracking is enabled."""
+    project_path = ctx.obj["project_path"]
+    harness_dir = Path(project_path) / ".claude-harness"
+
+    if not harness_dir.exists():
+        console.print("[red]Error: Harness not initialized. Run 'claude-harness init' first.[/red]")
+        sys.exit(1)
+
+    tracker = get_discovery_tracker(project_path)
+    enabled = tracker.is_enabled()
+
+    if enabled:
+        console.print("[green]Discoveries tracking: enabled[/green]")
+    else:
+        console.print("[yellow]Discoveries tracking: disabled[/yellow]")
+        console.print("[dim]Run 'claude-harness discovery enable' to enable.[/dim]")
 
 
 if __name__ == "__main__":

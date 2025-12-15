@@ -592,3 +592,244 @@ class TestInitializerEdgeCases:
 
         e2e_dir = tmp_path / "e2e"
         assert not e2e_dir.exists()
+
+
+class TestBuildHarnessSection:
+    """Tests for _build_harness_section() and helper methods."""
+
+    def test_build_harness_section_base(self, tmp_path):
+        """Test base harness section generation."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            port=5000,
+            health_endpoint="/health",
+            start_command="python app.py",
+            unit_test_command="pytest tests/",
+            coverage_threshold=80,
+            protected_branches=["main", "master"],
+            branch_prefixes=["feat/", "fix/"],
+            blocked_actions=["push --force", "rebase -i"],
+        )
+
+        section = init._build_harness_section()
+
+        # Check core sections are present
+        assert "# CLAUDE HARNESS INTEGRATION" in section
+        assert "## MANDATORY BEHAVIORS" in section
+        assert "## COMMANDS" in section
+        assert "## GIT RULES" in section
+        assert "## CONFIG" in section
+        assert "## CONTEXT TRACKING" in section
+
+        # Check config values are included
+        assert "5000" in section
+        assert "/health" in section
+        assert "python app.py" in section
+        assert "pytest tests/" in section
+        assert "80%" in section
+        assert "main" in section
+        assert "feat/" in section
+
+    def test_build_harness_section_with_delegation(self, tmp_path):
+        """Test harness section includes delegation when enabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            delegation_enabled=True,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## DELEGATION" in section
+        assert "Task tool" in section
+        assert "explore" in section
+        assert "test" in section
+        assert "document" in section
+        assert "review" in section
+
+    def test_build_harness_section_without_delegation(self, tmp_path):
+        """Test harness section excludes delegation when disabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            delegation_enabled=False,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## DELEGATION" not in section
+
+    def test_build_harness_section_with_orchestration(self, tmp_path):
+        """Test harness section includes orchestration when enabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            orchestration_enabled=True,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## ORCHESTRATION" in section
+        assert "orchestrate run" in section
+        assert "orchestrate plan" in section
+        assert "orchestrate status" in section
+
+    def test_build_harness_section_without_orchestration(self, tmp_path):
+        """Test harness section excludes orchestration when disabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            orchestration_enabled=False,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## ORCHESTRATION" not in section
+
+    def test_build_harness_section_with_discoveries(self, tmp_path):
+        """Test harness section includes discoveries when enabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            discoveries_enabled=True,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## DISCOVERIES" in section
+        assert "discovery add" in section
+        assert "discovery list" in section
+        assert "discovery search" in section
+
+    def test_build_harness_section_without_discoveries(self, tmp_path):
+        """Test harness section excludes discoveries when disabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            discoveries_enabled=False,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## DISCOVERIES" not in section
+
+    def test_build_harness_section_with_e2e(self, tmp_path):
+        """Test harness section includes E2E when enabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            e2e_enabled=True,
+            e2e_test_command="pytest e2e/",
+            e2e_base_url="http://localhost:3000",
+        )
+
+        section = init._build_harness_section()
+
+        assert "## E2E TESTING" in section
+        assert "pytest e2e/" in section
+        assert "http://localhost:3000" in section
+
+    def test_build_harness_section_without_e2e(self, tmp_path):
+        """Test harness section excludes E2E when disabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            e2e_enabled=False,
+        )
+
+        section = init._build_harness_section()
+
+        assert "## E2E TESTING" not in section
+
+    def test_build_harness_section_all_features(self, tmp_path):
+        """Test harness section with all features enabled."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            delegation_enabled=True,
+            orchestration_enabled=True,
+            discoveries_enabled=True,
+            e2e_enabled=True,
+        )
+
+        section = init._build_harness_section()
+
+        # All optional sections should be present
+        assert "## DELEGATION" in section
+        assert "## ORCHESTRATION" in section
+        assert "## DISCOVERIES" in section
+        assert "## E2E TESTING" in section
+
+    def test_build_harness_section_token_count(self, tmp_path):
+        """Test that compact format is more token-efficient than old format."""
+        init = Initializer(str(tmp_path))
+        init.config = HarnessConfig(
+            project_name="test-project",
+            delegation_enabled=True,
+        )
+
+        section = init._build_harness_section()
+
+        # Rough token estimate: ~4 chars per token
+        estimated_tokens = len(section) / 4
+
+        # Target is ~350-550 tokens for base + delegation
+        # Allow some margin
+        assert estimated_tokens < 800, f"Section too large: {estimated_tokens} estimated tokens"
+
+
+class TestHarnessConfigNewFields:
+    """Tests for new config fields: orchestration_enabled, discoveries_enabled."""
+
+    def test_orchestration_enabled_default(self):
+        """Test orchestration_enabled defaults to False."""
+        config = HarnessConfig()
+        assert config.orchestration_enabled is False
+
+    def test_discoveries_enabled_default(self):
+        """Test discoveries_enabled defaults to False."""
+        config = HarnessConfig()
+        assert config.discoveries_enabled is False
+
+    def test_orchestration_enabled_custom(self):
+        """Test orchestration_enabled can be set."""
+        config = HarnessConfig(orchestration_enabled=True)
+        assert config.orchestration_enabled is True
+
+    def test_discoveries_enabled_custom(self):
+        """Test discoveries_enabled can be set."""
+        config = HarnessConfig(discoveries_enabled=True)
+        assert config.discoveries_enabled is True
+
+    def test_to_dict_includes_orchestration(self):
+        """Test to_dict includes orchestration section."""
+        config = HarnessConfig(orchestration_enabled=True)
+        data = config.to_dict()
+
+        assert "orchestration" in data
+        assert data["orchestration"]["enabled"] is True
+
+    def test_to_dict_includes_discoveries(self):
+        """Test to_dict includes discoveries section."""
+        config = HarnessConfig(discoveries_enabled=True)
+        data = config.to_dict()
+
+        assert "discoveries" in data
+        assert data["discoveries"]["enabled"] is True
+
+    def test_to_dict_orchestration_disabled(self):
+        """Test to_dict with orchestration disabled."""
+        config = HarnessConfig(orchestration_enabled=False)
+        data = config.to_dict()
+
+        assert "orchestration" in data
+        assert data["orchestration"]["enabled"] is False
+
+    def test_to_dict_discoveries_disabled(self):
+        """Test to_dict with discoveries disabled."""
+        config = HarnessConfig(discoveries_enabled=False)
+        data = config.to_dict()
+
+        assert "discoveries" in data
+        assert data["discoveries"]["enabled"] is False
