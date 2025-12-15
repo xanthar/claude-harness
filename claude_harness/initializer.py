@@ -231,16 +231,22 @@ class Initializer:
         ],
     }
 
-    def __init__(self, project_path: str, non_interactive: bool = False):
+    def __init__(
+        self,
+        project_path: str,
+        non_interactive: bool = False,
+        config: Optional[HarnessConfig] = None,
+    ):
         """Initialize with project path.
 
         Args:
             project_path: Path to the project directory
             non_interactive: If True, skip prompts and use detected/default values
+            config: Optional pre-loaded config (used by refresh command)
         """
         self.project_path = Path(project_path).resolve()
         self.detected: Optional[DetectedStack] = None
-        self.config = HarnessConfig()
+        self.config = config if config is not None else HarnessConfig()
         self.is_existing_project = False
         self.non_interactive = non_interactive
 

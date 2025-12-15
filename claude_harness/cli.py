@@ -157,10 +157,11 @@ def refresh(ctx, path: str, update_claude_md: bool):
         # Create HarnessConfig from existing data
         config = HarnessConfig(
             project_name=config_data.get("project_name", project_path.name),
+            project_description=config_data.get("project_description", ""),
             language=config_data.get("stack", {}).get("language", "python"),
             framework=config_data.get("stack", {}).get("framework"),
             database=config_data.get("stack", {}).get("database"),
-            test_framework=config_data.get("stack", {}).get("test_framework", "pytest"),
+            test_framework=config_data.get("testing", {}).get("framework", "pytest"),
             venv_path=config_data.get("paths", {}).get("venv", ".venv"),
             port=config_data.get("startup", {}).get("port", 8000),
             health_endpoint=config_data.get("startup", {}).get("health_endpoint", "/health"),
@@ -168,10 +169,22 @@ def refresh(ctx, path: str, update_claude_md: bool):
             protected_branches=config_data.get("git", {}).get("protected_branches", ["main", "master"]),
             e2e_enabled=config_data.get("e2e", {}).get("enabled", False),
             e2e_base_url=config_data.get("e2e", {}).get("base_url", f"http://localhost:{config_data.get('startup', {}).get('port', 8000)}"),
+            # Testing config
+            unit_test_command=config_data.get("testing", {}).get("unit_command", "pytest tests/unit/ -v"),
+            e2e_test_command=config_data.get("testing", {}).get("e2e_command", "pytest e2e/ -v"),
+            coverage_threshold=config_data.get("testing", {}).get("coverage_threshold", 80),
+            # Blocked actions
+            blocked_actions=config_data.get("blocked_actions", [
+                "commit_to_protected_branch",
+                "push_to_protected_branch_without_confirmation",
+                "delete_backup_branches",
+            ]),
+            # Delegation
+            delegation_enabled=config_data.get("delegation", {}).get("enabled", False),
         )
 
         # Initialize with existing config
-        initializer = Initializer(str(project_path), config)
+        initializer = Initializer(str(project_path), config=config)
 
         # Only regenerate scripts (not data files)
         console.print("[blue]Refreshing harness scripts...[/blue]")
