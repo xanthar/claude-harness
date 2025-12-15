@@ -121,6 +121,17 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ## Completed Features
 
+### v1.1.2 (2025-12-15)
+
+#### CLAUDE.md Template Improvements
+- [x] Explicit CLI command requirements in Session End Ritual
+- [x] Warning against manual features.json editing
+- [x] `feature add` command documentation in template
+- [x] Removed non-actionable context savings table
+
+#### Backwards Compatibility
+- [x] `tests_pass` field support in Feature.from_dict()
+
 ### v1.1.0 (2025-12-14)
 
 #### Session Management & Context Tracking

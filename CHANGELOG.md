@@ -5,6 +5,26 @@ All notable changes to Claude Harness will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-12-15
+
+### Fixed
+- CLAUDE.md template now explicitly requires CLI commands for features.json updates
+  - Session End Ritual references specific CLI commands instead of ambiguous "Update features.json"
+  - Added bold warning: "NEVER manually edit features.json"
+  - Prevents agents from manually editing JSON with incorrect data structure
+- Added `feature add` command documentation to CLAUDE.md template
+  - Documents syntax for adding features with priority and subtasks
+- Backwards compatibility for legacy `tests_pass` field in features.json
+  - `Feature.from_dict()` now reads `tests_pass` if `tests_passing` is not present
+  - Supports features.json files created by older versions or manual editing
+
+### Changed
+- Removed "Estimated Context Savings" table from delegation section in CLAUDE.md template
+  - Table was documentation for humans, not actionable guidance for agents
+  - Saves ~200 tokens per generated CLAUDE.md
+
+---
+
 ## [1.1.1] - 2025-12-15
 
 ### Fixed
@@ -275,6 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.1.2 | 2025-12-15 | CLAUDE.md template clarity, tests_pass backwards compat |
 | 1.1.1 | 2025-12-15 | Fix refresh config loading, CLAUDE.md conditional sections |
 | 1.1.0 | 2025-12-14 | Session tracking, discoveries, delegation, slash commands, refresh |
 | 1.0.0 | 2025-12-12 | Initial release with full feature set |

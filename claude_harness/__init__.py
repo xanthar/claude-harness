@@ -12,7 +12,7 @@ A comprehensive harness for optimizing Claude Code sessions with:
 - Output compression (compress verbose command outputs)
 """
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 __author__ = "Morten Elmstroem Hansen"
 
 # Lazy imports for optional modules
