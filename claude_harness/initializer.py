@@ -2003,9 +2003,14 @@ Before ending a session or when context is getting full:
    - Next steps for the next session
    - Files modified
 
-2. **Update features.json** - Mark completed features, update subtasks
+2. **Update feature status using CLI commands** (see FEATURE TRACKING COMMANDS below):
+   - `claude-harness feature done <ID> <subtask>` for completed subtasks
+   - `claude-harness feature tests <ID>` when tests pass
+   - `claude-harness feature complete <ID>` when feature is done
 
 3. **Commit work** if appropriate
+
+**IMPORTANT:** NEVER manually edit `.claude-harness/features.json` - always use CLI commands to ensure correct data structure.
 
 ## ONE FEATURE AT A TIME
 
@@ -2016,7 +2021,14 @@ Before ending a session or when context is getting full:
 
 ## FEATURE TRACKING COMMANDS (USE THESE!)
 
-**You MUST use these commands to track progress:**
+**You MUST use these commands to track progress. NEVER manually edit features.json.**
+
+### Adding New Features
+```bash
+claude-harness feature add "<name>"                    # Add a new feature
+claude-harness feature add "<name>" -p 1              # Add with priority (lower = higher)
+claude-harness feature add "<name>" -s "Subtask 1"    # Add with subtasks
+```
 
 ### Starting Work on a Feature
 ```bash
