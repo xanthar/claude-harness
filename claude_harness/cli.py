@@ -114,13 +114,21 @@ def init(path: str, non_interactive: bool):
     default=".",
     help="Project path (default: current directory)",
 )
+@click.option(
+    "--update-claude-md",
+    is_flag=True,
+    help="Also update .claude/CLAUDE.md with latest harness section",
+)
 @click.pass_context
-def refresh(ctx, path: str):
+def refresh(ctx, path: str, update_claude_md: bool):
     """Refresh harness scripts without losing data.
 
     Regenerates:
     - scripts/init.sh (startup script)
     - .claude-harness/hooks/ (git safety hooks)
+
+    Optionally (with --update-claude-md):
+    - .claude/CLAUDE.md (harness integration section)
 
     Preserves:
     - features.json (feature tracking)
@@ -184,6 +192,11 @@ def refresh(ctx, path: str):
 
         # Update .gitignore for session files
         initializer._update_gitignore()
+
+        # Optionally update CLAUDE.md
+        if update_claude_md:
+            initializer._update_claude_md()
+            console.print("  [green]Updated:[/green] .claude/CLAUDE.md")
 
         console.print("\n[green]Harness scripts refreshed successfully![/green]")
         console.print("[dim]Data files (features.json, progress.md, config.json) were preserved.[/dim]")
