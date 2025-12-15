@@ -2129,9 +2129,9 @@ exit 0
 **Session End:** Update `progress.md` → verify all subtasks marked → `feature complete <ID>` → commit
 
 **Rules:**
-- ONE feature at a time (start before work, complete after tests pass)
+- ONE feature at a time: `feature start` before work → complete subtasks one at a time with `feature done` → `feature complete` after tests pass
 - NEVER edit `features.json` manually - use CLI commands only
-- ALL subtasks must be marked done before feature completion"""
+- ALL subtasks must be marked done with `feature done` before `feature complete`"""
 
     def _build_command_reference(self) -> str:
         """Build command reference section - compact format."""
