@@ -4,7 +4,7 @@ This document outlines planned features and improvements for Claude Harness, pri
 
 ---
 
-## Version 1.2.0 - History Import & Bootstrapping
+## Version 1.3.0 - History Import & Bootstrapping
 
 **Target:** Next minor release
 **Focus:** Import existing work into harness for established codebases
@@ -39,7 +39,7 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ---
 
-## Version 1.3.0 - Advanced Features
+## Version 1.4.0 - Advanced Features
 
 **Target:** Future release
 **Focus:** Power user features and automation
@@ -120,6 +120,31 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 ---
 
 ## Completed Features
+
+### v1.2.0 (2025-12-15)
+
+#### Compact AI-Optimized CLAUDE.md Template
+- [x] Modular section generation (`_build_harness_section()` with helpers)
+- [x] ~70% token reduction (~1800 → ~350-550 tokens)
+- [x] Table format for commands, flow arrows for rituals
+- [x] Optimized for AI comprehension over human readability
+
+#### Conditional CLAUDE.md Sections
+- [x] Delegation section: only when `delegation_enabled: true`
+- [x] Orchestration section: only when `orchestration_enabled: true`
+- [x] Discoveries section: only when `discoveries_enabled: true`
+- [x] E2E section: only when `e2e_enabled: true`
+- [x] Context tracking section always included (core feature)
+
+#### Feature Toggle Commands
+- [x] `orchestrate enable/disable` - Toggle automatic orchestration
+- [x] `orchestrate status` shows enabled/disabled state
+- [x] `discovery enable/disable/status` - Toggle discoveries tracking
+- [x] New config fields: `orchestration_enabled`, `discoveries_enabled`
+
+#### Tests
+- [x] 29 new tests for enable/disable commands and CLAUDE.md generation
+- [x] Total: 609 tests passing
 
 ### v1.1.2 (2025-12-15)
 
