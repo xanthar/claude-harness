@@ -2076,6 +2076,9 @@ exit 0
         # Header
         sections.append("# CLAUDE HARNESS INTEGRATION")
 
+        # Overview - explain what harness is and why to use it
+        sections.append(self._build_overview_section())
+
         # Core behaviors - concise mandatory rules
         sections.append(self._build_core_behaviors())
 
@@ -2110,6 +2113,21 @@ exit 0
         sections.append("---")
 
         return "\n\n".join(sections)
+
+    def _build_overview_section(self) -> str:
+        """Build overview section explaining what harness is."""
+        return """## WHAT IS THIS?
+
+Claude Harness is a **persistent workflow system** that tracks your work across sessions. Unlike Claude's internal TodoWrite (which resets each session), harness data persists in files:
+
+- `features.json` - Features and subtasks (survives session restarts)
+- `progress.md` - Session handoff notes (readable by next session)
+- `discoveries.json` - Findings and decisions (institutional memory)
+
+**Why use harness commands instead of TodoWrite?**
+→ Your progress is SAVED and visible to the next session
+→ Subtask completion is TRACKED for interrupted sessions
+→ The user can see your progress in real-time via `feature list`"""
 
     def _build_core_behaviors(self) -> str:
         """Build core behaviors section - concise mandatory rules."""

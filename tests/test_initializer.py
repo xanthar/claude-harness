@@ -774,9 +774,9 @@ class TestBuildHarnessSection:
         # Rough token estimate: ~4 chars per token
         estimated_tokens = len(section) / 4
 
-        # Target is ~350-550 tokens for base + delegation
-        # Allow some margin
-        assert estimated_tokens < 800, f"Section too large: {estimated_tokens} estimated tokens"
+        # Target is ~500-700 tokens for base + delegation + overview
+        # Allow margin for overview section (improves agent compliance)
+        assert estimated_tokens < 1000, f"Section too large: {estimated_tokens} estimated tokens"
 
 
 class TestHarnessConfigNewFields:
