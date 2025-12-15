@@ -167,6 +167,7 @@ def refresh(ctx, path: str, update_claude_md: bool):
             health_endpoint=config_data.get("startup", {}).get("health_endpoint", "/health"),
             start_command=config_data.get("startup", {}).get("start_command", "python main.py"),
             protected_branches=config_data.get("git", {}).get("protected_branches", ["main", "master"]),
+            branch_prefixes=config_data.get("git", {}).get("branch_prefixes", ["feat/", "fix/", "chore/", "docs/", "refactor/"]),
             e2e_enabled=config_data.get("e2e", {}).get("enabled", False),
             e2e_base_url=config_data.get("e2e", {}).get("base_url", f"http://localhost:{config_data.get('startup', {}).get('port', 8000)}"),
             # Testing config

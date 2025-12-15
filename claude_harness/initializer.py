@@ -2012,8 +2012,7 @@ Before ending a session or when context is getting full:
 - ALWAYS work on exactly ONE feature from features.json
 - Mark it as "in_progress" before starting
 - Complete ALL subtasks before marking "completed"
-- Run tests before marking as complete
-- E2E validation required if e2e_enabled is true
+- Run tests before marking as complete{chr(10) + "- E2E validation required before completion" if self.config.e2e_enabled else ""}
 
 ## FEATURE TRACKING COMMANDS (USE THESE!)
 
@@ -2065,8 +2064,7 @@ The following are blocked by harness hooks:
 
 ## TESTING REQUIREMENTS
 
-- Unit tests: `{self.config.unit_test_command}`
-- E2E tests: `{self.config.e2e_test_command}`
+- Unit tests: `{self.config.unit_test_command}`{chr(10) + "- E2E tests: `" + self.config.e2e_test_command + "`" if self.config.e2e_enabled else ""}
 - Coverage threshold: {self.config.coverage_threshold}%
 - Features are NOT complete until tests pass
 
@@ -2155,9 +2153,10 @@ Output: YAML summary with: accomplishments, files, decisions, issues, next_steps
             else:
                 # Replace existing harness section with updated one
                 import re
-                # Match from "# CLAUDE HARNESS INTEGRATION" to next "---" or end
-                pattern = r'# CLAUDE HARNESS INTEGRATION.*?(?=\n---\n|$)'
-                new_content = re.sub(pattern, harness_section.strip(), existing_content, flags=re.DOTALL)
+                # Match from "# CLAUDE HARNESS INTEGRATION" to just before "## Project-Specific" or similar end marker
+                # Use greedy match to capture entire harness section including all --- separators
+                pattern = r'# CLAUDE HARNESS INTEGRATION.*?(?=\n## Project-Specific|\n## Project Specific|\Z)'
+                new_content = re.sub(pattern, harness_section.strip() + "\n", existing_content, flags=re.DOTALL)
                 with open(claude_md_path, "w") as f:
                     f.write(new_content)
                 console.print(f"  [green]Updated:[/green] .claude/CLAUDE.md (replaced harness section)")

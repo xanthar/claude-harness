@@ -184,6 +184,8 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - [x] Runtime config reading in init.sh (jq-based)
 - [x] Auto gitignore/untrack session files
 - [x] Data preservation on reinit
+- [x] All 12 config values correctly loaded for CLAUDE.md generation
+- [x] Conditional sections (E2E, delegation) appear/disappear based on config
 
 ### v1.0.0 (2025-12-12)
 

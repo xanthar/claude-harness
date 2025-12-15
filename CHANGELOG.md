@@ -173,7 +173,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Placeholder text filtering in progress.md (fixes "No tasks in progress" persisting)
 - String subtasks in features.json now supported (backwards compatibility for manual/external creation)
 - Conflicting messages in `refresh --update-claude-md` (now replaces existing section instead of showing both "Skipped" and "Updated")
-- Refresh command now correctly loads all config values (port, health endpoint, start command, etc.) from config.json
+- Refresh command now correctly loads all 12 config values from config.json:
+  - port, health_endpoint, start_command, protected_branches, branch_prefixes
+  - blocked_actions, delegation_enabled, test_framework
+  - unit_test_command, e2e_test_command, coverage_threshold, e2e_enabled
+- CLAUDE.md conditional sections now work correctly:
+  - E2E validation/test lines appear only when `e2e.enabled: true`
+  - SUBAGENT DELEGATION section appears only when `delegation.enabled: true`
+- Regex pattern for CLAUDE.md replacement improved (fixes accumulated `---` separators)
 
 ---
 
