@@ -2140,15 +2140,6 @@ Constraints:
 Output: YAML summary with: accomplishments, files, decisions, issues, next_steps
 ```
 
-### Estimated Context Savings
-
-| Task Type | Without Delegation | With Delegation | Savings |
-|-----------|-------------------|-----------------|---------|
-| Exploration | ~30K tokens | ~3-5K | 83-90% |
-| Test Writing | ~20K tokens | ~5-8K | 60-75% |
-| Documentation | ~15K tokens | ~3-5K | 67-80% |
-| Code Review | ~25K tokens | ~5-10K | 60-80% |
-
 ---
 '''
             harness_section += delegation_section
