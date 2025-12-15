@@ -2147,7 +2147,14 @@ Output: YAML summary with: accomplishments, files, decisions, issues, next_steps
                     f.write("\n" + harness_section)
                 console.print(f"  [green]Updated:[/green] .claude/CLAUDE.md (added harness section)")
             else:
-                console.print(f"  [yellow]Skipped:[/yellow] .claude/CLAUDE.md (harness section exists)")
+                # Replace existing harness section with updated one
+                import re
+                # Match from "# CLAUDE HARNESS INTEGRATION" to next "---" or end
+                pattern = r'# CLAUDE HARNESS INTEGRATION.*?(?=\n---\n|$)'
+                new_content = re.sub(pattern, harness_section.strip(), existing_content, flags=re.DOTALL)
+                with open(claude_md_path, "w") as f:
+                    f.write(new_content)
+                console.print(f"  [green]Updated:[/green] .claude/CLAUDE.md (replaced harness section)")
         else:
             # Create new
             full_content = f"""# {self.config.project_name}

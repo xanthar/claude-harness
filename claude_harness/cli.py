@@ -196,7 +196,6 @@ def refresh(ctx, path: str, update_claude_md: bool):
         # Optionally update CLAUDE.md
         if update_claude_md:
             initializer._update_claude_md()
-            console.print("  [green]Updated:[/green] .claude/CLAUDE.md")
 
         console.print("\n[green]Harness scripts refreshed successfully![/green]")
         console.print("[dim]Data files (features.json, progress.md, config.json) were preserved.[/dim]")
