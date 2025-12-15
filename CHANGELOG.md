@@ -5,6 +5,21 @@ All notable changes to Claude Harness will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-12-15
+
+### Fixed
+- Refresh command now correctly loads all 12 config values from config.json:
+  - port, health_endpoint, start_command, protected_branches, branch_prefixes
+  - blocked_actions, delegation_enabled, test_framework
+  - unit_test_command, e2e_test_command, coverage_threshold, e2e_enabled
+- CLAUDE.md conditional sections now work correctly:
+  - E2E validation/test lines appear only when `e2e.enabled: true`
+  - SUBAGENT DELEGATION section appears only when `delegation.enabled: true`
+- Conflicting messages in `refresh --update-claude-md` (now replaces existing section)
+- Regex pattern for CLAUDE.md replacement improved (fixes accumulated `---` separators)
+
+---
+
 ## [1.1.0] - 2025-12-14
 
 ### Added
@@ -172,15 +187,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Data preservation on reinit (features.json, progress.md, config.json kept)
 - Placeholder text filtering in progress.md (fixes "No tasks in progress" persisting)
 - String subtasks in features.json now supported (backwards compatibility for manual/external creation)
-- Conflicting messages in `refresh --update-claude-md` (now replaces existing section instead of showing both "Skipped" and "Updated")
-- Refresh command now correctly loads all 12 config values from config.json:
-  - port, health_endpoint, start_command, protected_branches, branch_prefixes
-  - blocked_actions, delegation_enabled, test_framework
-  - unit_test_command, e2e_test_command, coverage_threshold, e2e_enabled
-- CLAUDE.md conditional sections now work correctly:
-  - E2E validation/test lines appear only when `e2e.enabled: true`
-  - SUBAGENT DELEGATION section appears only when `delegation.enabled: true`
-- Regex pattern for CLAUDE.md replacement improved (fixes accumulated `---` separators)
 
 ---
 
@@ -269,5 +275,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 1.1.1 | 2025-12-15 | Fix refresh config loading, CLAUDE.md conditional sections |
 | 1.1.0 | 2025-12-14 | Session tracking, discoveries, delegation, slash commands, refresh |
 | 1.0.0 | 2025-12-12 | Initial release with full feature set |
