@@ -167,6 +167,7 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - [x] `feature info <ID>` - Detailed feature display
 - [x] `feature done <ID> <name>` - Fuzzy subtask completion
 - [x] `feature note <ID> "text"` - Timestamped notes
+- [x] `feature sync` - Infer subtask status from modified files
 - [x] `--priority` and `--search` filtering
 - [x] Bulk operations with `--yes` flag
 
@@ -179,6 +180,7 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 #### Refresh Command
 - [x] `claude-harness refresh` - Regenerate scripts without losing data
+- [x] `--update-claude-md` flag to update CLAUDE.md with latest harness section
 - [x] Runtime config reading in init.sh (jq-based)
 - [x] Auto gitignore/untrack session files
 - [x] Data preservation on reinit
@@ -244,4 +246,4 @@ Found an issue or have a suggestion?
 
 ---
 
-*Last updated: 2025-12-14*
+*Last updated: 2025-12-15*

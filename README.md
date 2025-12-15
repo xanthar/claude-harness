@@ -83,6 +83,12 @@ claude-harness refresh
 
 This regenerates init.sh, hooks, and init.ps1 with the latest improvements while preserving your data (features.json, progress.md, config.json).
 
+To also update CLAUDE.md with the latest harness integration section:
+
+```bash
+claude-harness refresh --update-claude-md
+```
+
 ### Manage features
 
 ```bash
@@ -476,7 +482,7 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | Command | Description |
 |---------|-------------|
 | `claude-harness init` | Initialize harness in project |
-| `claude-harness refresh` | Refresh scripts without losing data |
+| `claude-harness refresh [--update-claude-md]` | Refresh scripts without losing data |
 | `claude-harness status` | Show current status |
 | `claude-harness detect` | Preview stack detection |
 | `claude-harness run` | Execute init.sh |
@@ -496,6 +502,7 @@ The harness adds mandatory rituals to your CLAUDE.md:
 | `feature note ID TEXT` | Add note to feature |
 | `feature tests ID` | Mark tests as passing |
 | `feature e2e ID` | Mark E2E as validated |
+| `feature sync` | Infer subtask status from modified files |
 | `feature phase NAME` | Set current phase |
 
 ### Progress Tracking (`progress`)

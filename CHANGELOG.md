@@ -142,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Use after upgrading claude-harness to get latest improvements
   - Automatically updates .gitignore for session files
   - Untracks already-tracked session files from git
+  - `--update-claude-md` flag to update CLAUDE.md with latest harness section
 
 ### Changed
 
