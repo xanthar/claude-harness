@@ -171,6 +171,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Data preservation on reinit (features.json, progress.md, config.json kept)
 - Placeholder text filtering in progress.md (fixes "No tasks in progress" persisting)
 - String subtasks in features.json now supported (backwards compatibility for manual/external creation)
+- Conflicting messages in `refresh --update-claude-md` (now replaces existing section instead of showing both "Skipped" and "Updated")
 
 ---
 
