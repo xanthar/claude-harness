@@ -63,28 +63,34 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 - Block starting feature if dependencies incomplete
 - Visual dependency tree: `claude-harness feature tree`
 
+#### 8. Feature Delete Command
+- [ ] `claude-harness feature delete <ID>` - Remove a feature from tracking
+- Prompt for confirmation before deletion
+- Option to delete from any list (pending, completed, blocked)
+- Useful for cleaning up duplicates or incorrectly added features
+
 ### Low Priority
 
-#### 8. Protected Branch Confirmation
+#### 9. Protected Branch Confirmation
 - [ ] Require explicit confirmation even when user requests protected branch operations
 - [ ] Add warning prompt: "This will [action] on protected branch [name]. Confirm? (yes/no)"
 - [ ] Currently: explicit user commands override harness rules without friction
 - [ ] Future: always warn, require confirmation, then proceed
 - [ ] Applies to: commits to main/master, force push, branch deletion
 
-#### 9. Time Tracking
+#### 10. Time Tracking
 - [ ] Track time spent on each feature
 - Record start/stop timestamps
 - Session duration tracking
 - Time summary reports
 
-#### 10. Interactive Tutorial
+#### 11. Interactive Tutorial
 - [ ] `claude-harness tutorial` - Guided walkthrough
 - Step-by-step introduction to all commands
 - Example project setup
 - Best practices guidance
 
-#### 11. Template System
+#### 12. Template System
 - [ ] `claude-harness init --template flask` - Use predefined templates
 - Community template repository
 - Custom template creation
@@ -98,27 +104,27 @@ When initializing harness on an existing codebase (e.g., a project with 20+ comp
 
 ### Planned Features
 
-#### 12. Team Collaboration
+#### 13. Team Collaboration
 - [ ] Shared progress tracking
 - [ ] Feature assignment
 - [ ] Conflict resolution for concurrent edits
 
-#### 13. CI/CD Integration
+#### 14. CI/CD Integration
 - [ ] GitHub Actions integration
 - [ ] GitLab CI templates
 - [ ] Jenkins pipeline support
 
-#### 14. Metrics Dashboard
+#### 15. Metrics Dashboard
 - [ ] Web-based dashboard
 - [ ] Feature velocity tracking
 - [ ] Session analytics
 
-#### 15. Plugin System
+#### 16. Plugin System
 - [ ] Custom hook plugins
 - [ ] Third-party integrations
 - [ ] Extension API
 
-#### 16. Codebase Restructuring
+#### 17. Codebase Restructuring
 - [ ] Consider reorganizing `claude_harness/` into subdirectories
 - Potential structure: `core/`, `context/`, `optimization/`, `delegation/`, `integrations/`
 - Update all imports and tests accordingly
@@ -310,4 +316,4 @@ Found an issue or have a suggestion?
 
 ---
 
-*Last updated: 2025-12-15*
+*Last updated: 2025-12-16*
